@@ -3,7 +3,7 @@ using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace LiteChat.Infrastructure.Repositories
+namespace LightChat.Infrastructure.Repositories
 {
     public class EfChatRepository : IChatRepository
     {
