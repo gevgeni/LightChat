@@ -1,7 +1,7 @@
 @hostname = https://localhost:7114
 
 ### 1. Создаем первого пользователя (Alice)
-POST {{hostname}}/api/users
+POST {{hostname}}/auth/login
 Content-Type: application/json
 
 {
@@ -12,7 +12,7 @@ Content-Type: application/json
 ###
 
 ### 2. Создаем второго пользователя (Bob)
-POST {{hostname}}/api/users
+POST {{hostname}}/auth/login
 Content-Type: application/json
 
 {

@@ -52,6 +52,11 @@
                 background: #0066cc;
             }
 
+            button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+
         #chatWindow {
             display: none;
             margin-top: 20px;
@@ -76,6 +81,12 @@
             border-radius: 4px;
             width: fit-content;
         }
+
+        .status {
+            color: green;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -83,67 +94,108 @@
     <div class="field">
         <h2>LightChat Тест-Панель</h2>
 
-        <div class="field">
-            <label>Твой User ID:</label>
-            <input type="text" id="userIdInput" placeholder="Вставь Guid созданного юзера" />
+        <div id="authSection">
+            <div class="field">
+                <label>Имя пользователя:</label>
+                <input type="text" id="usernameInput" placeholder="Введите имя"/>
+            </div>
+            <button id="loginBtn" onclick="loginAndConnect()">Войти в систему и открыть чат</button>
         </div>
-        <div class="field">
-            <label>ID Комнаты чата:</label>
-            <input type="text" id="chatIdInput" placeholder="Вставь Guid созданного чата">
-        </div>
-        <button id="connectBtn" onclick="connectToChat()">Войти в комнату</button>
 
         <div id="chatWindow">
-            <h3 id="roomTitle">Комната чата</h3>
-            <div id="messagesList"></div>
-            <div class="field" style="display: flex; gap: 10px;">
-                <input type="text" id="messageTextInput" placeholder="Введите сообщение..." />
-                <button onclick="sendMessage()">Отправить</button>
+            <div class="field">
+                <label>ID Комнаты чата (Guid):</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="chatIdInput" placeholder="Вставь Guid созданного чата"/>
+                    <button id="joinBtn" onclick="joinRoom()">Войти в комнату</button>
+                </div>
+            </div>
+
+            <div id="chatArea" style="display: none; margin-top: 20px;">
+                <h3 id="roomTitle">Комната чата</h3>
+                <div id="messagesList"></div>
+                <div class="field" style="display: flex; gap: 10px;">
+                    <input type="text" id="messageTextInput" placeholder="Введите сообщение..."/>
+                    <button onclick="sendMessage()">Отправить</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         let connection = null;
+        let jwtToken = "";
         let chatId = "";
-        let userId = "";
 
-        async function connectToChat() {
-            userId = document.getElementById("userIdInput").value.trim();
-            chatId = document.getElementById("chatIdInput").value.trim();
-
-            if (!userId || !chatId) {
-                alert("Заполни оба GUID поля!");
+        async function loginAndConnect() {
+            const username = document.getElementById("usernameInput").value.trim();
+            if (!username) {
+                alert("Введите имя пользователя!");
                 return;
             }
 
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl("/chatHub")
-                .withAutomaticReconnect()
-                .build();
-
-            connection.on("ReceiveMessage", (message) => {
-                const msgDiv = document.createElement("div");
-                msgDiv.classList.add("msg");
-                msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
-
-                const list = document.getElementById("messagesList");
-                list.appendChild(msgDiv);
-                list.scrollTop = list.scrollHeight;
-            });
-
             try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Неверное имя пользователя или ошибка сервера");
+                }
+
+                const data = await response.json();
+                jwtToken = data.token;
+
+                console.log("JWT получен успешно!");
+
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("/chatHub", {
+                        accessTokenFactory: () => jwtToken
+                    })
+                    .withAutomaticReconnect()
+                    .build();
+
+                connection.on("ReceiveMessage", (message) => {
+                    const msgDiv = document.createElement("div")
+                    msgDiv.classList.add("msg");
+                    msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
+
+                    const list = document.getElementById("messagesList");
+                    list.appendChild(msgDiv);
+                    list.scrollTop = list.scrollHeight;
+                });
+
                 await connection.start();
 
+                document.getElementById("authSection").style.display = "none";
+                document.getElementById("chatWindow").style.display = "block";
+                console.log("Успешное защищенное подключение к SignalR");
+            } catch (err) {
+                console.error("Ошибка:", err);
+                alert("Ошибка: " + err.message);
+            }
+        }
+
+        async function joinRoom() {
+            chatId = document.getElementById("chatIdInput").value.trim();
+            if (!chatId || !connection) {
+                alert("Введите корректный ID комнаты!");
+                return;
+            }
+
+            try {
                 await connection.invoke("JoinChat", chatId);
 
-                document.getElementById("chatWindow").style.display = "block";
+                document.getElementById("chatArea").style.display = "block";
                 document.getElementById("roomTitle").innerHTML = `Вы в комнате: ${chatId.substring(0, 8)}...`;
-                document.getElementById("connectBtn").disabled = true;
-                console.log("Успешное подключение к SiqnalR");
+                document.getElementById("chatIdInput").disabled = true;
+                document.getElementById("joinBtn").disabled = true;
+                console.log("Успешно вошли в группу чата");
             } catch (err) {
-                console.error("Ошибка подключения:", err);
-                alert("Не удалось подключиться: " + err.message);
+                console.error("Ошибка входа в комнату:", err);
+                alert("Не удалось войти в комнату: " + err.message);
             }
         }
 
@@ -154,7 +206,7 @@
             if (!text || !connection) return;
 
             try {
-                await connection.invoke("SendMessage", chatId, userId, text);
+                await connection.invoke("SendMessage", chatId, text);
                 textInput.value = "";
             } catch (err) {
                 console.error("Ошибка отправки:", err);
