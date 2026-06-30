@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  litechat-db:
+    image: postgres:16-alpine
+    container_name: litechat_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: )LK-7cV)>wxs*%a
+      POSTGRES_DB: litechat_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - litechat-data:/var/lib/postgresql/data
+
+volumes:
+  litechat-data:
