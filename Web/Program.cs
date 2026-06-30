@@ -1,10 +1,16 @@
+using System.Text;
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 using LightChat.Web.Hubs;
+using LightChat.Web.Models;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-using LiteChat.Infrastructure.Repositories;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +29,46 @@ builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
 #endregion
 
 builder.Services.AddOpenApi();
+
+#region JWT авторизация
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"] ?? string.Empty);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(secretKey)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                context.Token = accessToken;
+
+            return Task.CompletedTask;
+        }
+    };
+});
+#endregion
+
+builder.Services.AddAuthentication();
 
 var app = builder.Build();
 
@@ -102,18 +148,51 @@ app.MapPost("/api/chats/members", async (AddMemberDto dto, IChatRepository chatR
     await chatRepo.AddMemberAsync(member);
     return Results.Ok("Пользователь успешно добавлен в чат.");
 });
+
+app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbContext, IConfiguration configuration) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Username))
+        return Results.BadRequest("Имя пользователя не может быть пустым.");
+
+    var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+    if (user == null)
+        return Results.Unauthorized();
+
+    var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+    var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"] ?? string.Empty);
+
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Name, user.Username)
+    };
+
+    var key = new SymmetricSecurityKey(secretKey);
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    var token = new SecurityTokenDescriptor
+    {
+        Subject = new ClaimsIdentity(claims),
+        Expires = DateTime.UtcNow.AddDays(1),
+        Issuer = jwtSettings["Issuer"],
+        Audience = jwtSettings["Audience"],
+        SigningCredentials = creds
+    };
+
+    var tokenHandler = new JwtSecurityTokenHandler();
+    var securityToken = tokenHandler.CreateToken(token);
+    var tokenString = tokenHandler.WriteToken(securityToken);
+
+    return Results.Ok(new { Token = tokenString } );
+});
 #endregion
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHub<ChatHub>("/chatHub");
 
 app.Run();
-
-#region DTO
-public record CreateUserDto(string Username, string Email);
-public record CreateChatDto(string Name);
-public record AddMemberDto(Guid ChatId, Guid UserId);
-#endregion
