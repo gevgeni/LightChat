@@ -36,7 +36,7 @@ namespace LightChat.Web.Hubs
 
             await _messageRepository.SaveAsync(message);
 
-            await Clients.Group(chatId.ToString()).SendAsync("RecieveMessage", new
+            await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", new
             {
                 id = message.Id,
                 chatId = message.ChatId,
