@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.SignalR;
-
-using LightChat.Core.Entities;
+﻿using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using System.Security.Claims;
 
 namespace LightChat.Web.Hubs
 {
+    [Authorize]
     public class ChatHub : Hub
     {
         private readonly IMessageRepository _messageRepository;
@@ -19,8 +21,10 @@ namespace LightChat.Web.Hubs
         /// <summary>
         /// Отправка сообщения в конкретный чат
         /// </summary>
-        public async Task SendMessage(Guid chatId, Guid userId, string text)
+        public async Task SendMessage(Guid chatId, string text)
         {
+            var userId = GetUserId();
+
             var isMember = await _chatRepository.IsMemberAsync(chatId, userId);
             if (!isMember)
                 throw new HubException("Вы не являетесь участником этого чата.");
@@ -50,12 +54,30 @@ namespace LightChat.Web.Hubs
         /// Присоединение юзера к чату
         /// </summary>
         public async Task JoinChat(Guid chatId)
-            => await Groups.AddToGroupAsync(Context.ConnectionId, chatId.ToString());
+        {
+            var userId = GetUserId();
+
+            var isMember = await _chatRepository.IsMemberAsync(chatId, userId);
+            if (!isMember)
+                throw new HubException("Вы не являетесь участником этого чата.");
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, chatId.ToString());
+        }
 
         /// <summary>
         /// Покидание юзером чата
         /// </summary>
         public async Task LeaveChat(Guid chatId)
             => await Groups.RemoveFromGroupAsync(Context.ConnectionId, chatId.ToString());
+
+        private Guid GetUserId()
+        {
+            var nameIdentifier = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+                throw new HubException("Не удалось определить идентификатор пользователя.");
+
+            return userId;
+        }
     }
 }
