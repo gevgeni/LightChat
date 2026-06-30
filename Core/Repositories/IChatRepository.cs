@@ -8,7 +8,7 @@ namespace LightChat.Core.Repositories
         Task CreateAsync(Chat chat);
 
         Task AddMemberAsync(ChatMember member);
-        Task<bool> IsExistsAsync(Guid chatId, Guid userId);
+        Task<bool> IsMemberAsync(Guid chatId, Guid userId);
 
         Task<IEnumerable<Chat>> GetUserChatsAsync(Guid userId);
     }

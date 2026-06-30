@@ -37,7 +37,7 @@ namespace LiteChat.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<bool> IsExistsAsync(Guid chatId, Guid userId)
+        public async Task<bool> IsMemberAsync(Guid chatId, Guid userId)
             => await _context.ChatMembers.AnyAsync(cm => cm.ChatId == chatId && cm.UserId == userId);
     }
 }
