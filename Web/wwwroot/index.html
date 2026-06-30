@@ -186,6 +186,35 @@
             }
 
             try {
+                const response = await fetch(`/chats/${chatId}/messages`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error("Вы не являетесь участником этого чата.");
+                    }
+                    throw new Error("Не удалось загрузить историю сообщений.");
+                }
+
+                const messages = await response.json();
+                const list = document.getElementById("messagesList");
+                list.innerHTML = "";
+
+                messages.forEach(message => {
+                    const msgDiv = document.createElement("div");
+                    msgDiv.classList.add("msg");
+                    msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
+                    list.appendChild(msgDiv);
+                });
+
+                list.scrollTop = list.scrollHeight;
+
+                console.log(`Загружено ${messages.length} старых сообщений.`);
+
                 await connection.invoke("JoinChat", chatId);
 
                 document.getElementById("chatArea").style.display = "block";
