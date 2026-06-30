@@ -106,6 +106,8 @@ app.MapPost("/api/chats/members", async (AddMemberDto dto, IChatRepository chatR
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles();
+
 app.MapHub<ChatHub>("/chatHub");
 
 app.Run();
