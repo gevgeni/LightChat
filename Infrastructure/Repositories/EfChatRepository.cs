@@ -20,9 +20,10 @@ namespace LightChat.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task CreateAsync(Chat chat)
+        public async Task CreateGroupChatAsync(Chat chat, ChatMember member)
         {
-            await _context.Chats.AddAsync(chat);
+            _context.Chats.Add(chat);
+            _context.ChatMembers.Add(member);
             await _context.SaveChangesAsync();
         }
 
