@@ -206,7 +206,26 @@ app.MapGet("chats/{chatId:guid}/messages", async (
     var effectiveLimit = limit > 0 ? limit : 50;
     var messages = await messageRepository.GetChatHistoryAsync(chatId, effectiveLimit, beforeMessageId);
 
-    return Results.Ok(messages);
+    var senderIds = messages.Select(m => m.SenderId).Distinct().ToList();
+    var usernamesDict = new Dictionary<Guid, string>();
+
+    foreach (var id in senderIds)
+    {
+        var u = await userRepository.GetByIdAsync(id);
+        if (u != null) usernamesDict[id] = u.Username;
+    }
+
+    var result = messages.Select(m => new
+    {
+        id = m.Id,
+        chatId = m.ChatId,
+        senderId = m.SenderId,
+        senderUsername = usernamesDict.TryGetValue(m.SenderId, out var name) ? name : "Неизвестный",
+        text = m.Text,
+        sentAt = m.SentAt
+    });
+
+    return Results.Ok(result);
 })
 .RequireAuthorization();
 
@@ -230,6 +249,20 @@ app.MapGet("/chats", async (
     return Results.Ok(result);
 })
 .RequireAuthorization();
+
+app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, HttpContext context) =>
+{
+    var membersAsUsers = await chatRepository.GetMembersAsync(chatId);
+
+    var results = membersAsUsers.Select(u => new
+    {
+        id =u.Id,
+        username = u.Username,
+        email = u.Email
+    });
+
+    return Results.Ok(results);
+});
 #endregion
 
 app.UseHttpsRedirection();
