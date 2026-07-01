@@ -18,7 +18,7 @@
         }
 
         .app-container {
-            width: 900px;
+            width: 1150px;
             height: 600px;
             background: white;
             border-radius: 12px;
@@ -178,6 +178,44 @@
             color: #888;
             font-size: 16px;
         }
+        .members-sidebar {
+            width: 250px;
+            background: #ffffff;
+            border-left: 1px solid #e1e4e6;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .members-header {
+            padding: 15px;
+            background: #f7f9fa;
+            border-bottom: 1px solid #e1e4e6;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .members-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .member-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f2f3;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .member-status {
+            width: 8px;
+            height: 8px;
+            background: #2ec4b6; /* Зеленый кружок */
+            border-radius: 50%;
+        }
     </style>
 </head>
 <body>
@@ -204,10 +242,20 @@
 
                     <div id="activeChatArea" style="display: none; flex-direction: column; flex: 1; height: 100%;">
                         <div class="chat-header" id="currentChatTitle">Название чата</div>
-                        <div class="messages-list" id="messagesList"></div>
-                        <div class="input-area">
-                            <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()"/>
-                            <button onclick="sendMessage()">Отправить</button>
+
+                        <div style="display: flex; flex: 1; overflow: hidden;">
+                            <div style="display: flex; flex-direction: column; flex: 1; height: 100%;">
+                                <div class="messages-list" id="messagesList"></div>
+                                <div class="input-area">
+                                    <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()" />
+                                    <button onclick="sendMessage()">Отправить</button>
+                                </div>
+                            </div>
+
+                            <div class="members-sidebar">
+                                <div class="members-header">В чате (<span id="membersCount">0</span>)</div>
+                                <div class="members-list" id="chatMembersContainer"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -289,6 +337,36 @@
             }
         }
 
+        async function loadChatMembers(chatId) {
+            try {
+                const response = await fetch(`/chats/${chatId}/members`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) throw new Error("Не удалось загрузить участников");
+
+                const members = await response.json();
+                const container = document.getElementById("chatMembersContainer");
+                const countSpan = document.getElementById("membersCount");
+
+                container.innerHTML = "";
+                countSpan.innerText = members.length;
+
+                members.forEach(member => {
+                    const item = document.createElement("div");
+                    item.classList.add("member-item");
+
+                    const isMe = member.id === currentUserId ? " (Вы)" : "";
+
+                    item.innerHTML = `<div class="member-status"></div><span>${member.username}${isMe}</span>`;
+                    container.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Ошибка загрузки участников:", err);
+            }
+        }
+
         async function loadUserChats() {
             try {
                 const response = await fetch('/chats', {
@@ -333,6 +411,7 @@
             document.getElementById("currentChatTitle").innerText = chatName;
 
             await loadMoreMessages();
+            await loadChatMembers(chatId);
 
             try {
                 await connection.invoke("JoinChat", chatId);
