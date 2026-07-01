@@ -6,116 +6,210 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
         body {
-            font-family: sans-serif;
-            margin: 30px;
-            background: #f4f4f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #eef2f3;
             color: #333;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
+        .app-container {
+            width: 900px;
+            height: 600px;
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: flex;
+            overflow: hidden;
         }
 
-        .field {
-            margin-bottom: 15px;
+        #authSection {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            box-sizing: border-box;
         }
 
-        label {
-            display: block;
+        .auth-box {
+            width: 320px;
+        }
+
+        #mainInterface {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #2f3e46;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: #243036;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .chats-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 15px;
+            border-bottom: 1px solid #3a4f59;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+            .chat-item:hover {
+                background: #3a4f59;
+            }
+
+            .chat-item.active {
+                background: #007fff;
+            }
+
+        .chat-window {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f7f9fa;
+        }
+
+        .chat-header {
+            padding: 15px;
+            background: white;
+            border-bottom: 1px solid #e1e4e6;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .messages-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .msg {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+            .msg.incoming {
+                background: #e3e6e8;
+                align-self: flex-start;
+            }
+
+            .msg.outgoing {
+                background: #007fff;
+                color: white;
+                align-self: flex-end;
+            }
+
+        .msg-sender {
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 4px;
+            display: block;
+            color: #555;
+        }
+
+        .msg.outgoing .msg-sender {
+            color: #e6f2ff;
+        }
+
+        .input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e1e4e6;
+            display: flex;
+            gap: 10px;
         }
 
         input[type="text"] {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
+            flex: 1;
+            padding: 10px;
             border: 1px solid #ccc;
-            border-radius: 4px;
+            border-radius: 6px;
+            font-size: 14px;
         }
 
         button {
-            padding: 10px 15px;
+            padding: 10px 20px;
             background: #007fff;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
         }
 
             button:hover {
                 background: #0066cc;
             }
 
-            button:disabled {
-                background: #ccc;
-                cursor: not-allowed;
-            }
-
-        #chatWindow {
-            display: none;
-            margin-top: 20px;
-            border-top: 2px solid #eee;
-            padding-top: 20px;
-        }
-
-        #messagesList {
-            height: 250px;
-            border: 1px solid #ddd;
-            overflow-y: scroll;
-            padding: 10px;
-            background: #fafafa;
-            margin-bottom: 10px;
-            border-radius: 4px;
-        }
-
-        .msg {
-            margin-bottom: 8px;
-            padding: 6px;
-            background: #e6f2ff;
-            border-radius: 4px;
-            width: fit-content;
-        }
-
-        .status {
-            color: green;
-            font-weight: bold;
-            margin-bottom: 10px;
+        #noChatSelected {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
-    <div class="field">
-        <h2>LightChat Тест-Панель</h2>
-
+    <div class="app-container">
         <div id="authSection">
-            <div class="field">
-                <label>Имя пользователя:</label>
-                <input type="text" id="usernameInput" placeholder="Введите имя"/>
+            <div class="auth-box">
+                <h2 style="text-align: center; margin-bottom: 20px;">Войти в LightChat</h2>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;"/>
+                </div>
+                <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
             </div>
-            <button id="loginBtn" onclick="loginAndConnect()">Войти в систему и открыть чат</button>
         </div>
 
-        <div id="chatWindow">
-            <div class="field">
-                <label>ID Комнаты чата (Guid):</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="chatIdInput" placeholder="Вставь Guid созданного чата"/>
-                    <button id="joinBtn" onclick="joinRoom()">Войти в комнату</button>
+        <div id="mainInterface">
+            <div style="display: flex; width: 100%; height: 100%;">
+                <div class="sidebar">
+                    <div class="sidebar-header">Мои чаты</div>
+                    <div class="chats-list" id="chatsListContainer"></div>
                 </div>
-            </div>
 
-            <div id="chatArea" style="display: none; margin-top: 20px;">
-                <h3 id="roomTitle">Комната чата</h3>
-                <div id="messagesList"></div>
-                <div class="field" style="display: flex; gap: 10px;">
-                    <input type="text" id="messageTextInput" placeholder="Введите сообщение..."/>
-                    <button onclick="sendMessage()">Отправить</button>
+                <div class="chat-window">
+                    <div id="noChatSelected">Выберите чат слева, чтобы начать общение</div>
+
+                    <div id="activeChatArea" style="display: none; flex-direction: column; flex: 1; height: 100%;">
+                        <div class="chat-header" id="currentChatTitle">Название чата</div>
+                        <div class="messages-list" id="messagesList"></div>
+                        <div class="input-area">
+                            <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()"/>
+                            <button onclick="sendMessage()">Отправить</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -124,13 +218,27 @@
     <script>
         let connection = null;
         let jwtToken = "";
-        let chatId = "";
+        let currentUserId = null;
+        let activeChatId = null;
 
         let oldestMessageId = null;
         let isLoadingMessages = false;
         let hasMoreMessages = true;
 
-        async function loginAndConnect() {
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function loginAndLoadApp() {
             const username = document.getElementById("usernameInput").value.trim();
             if (!username) {
                 alert("Введите имя пользователя!");
@@ -149,58 +257,87 @@
                 const data = await response.json();
                 jwtToken = data.token;
 
+                const parsed = parseJwt(jwtToken);
+                currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
+
                 console.log("JWT получен успешно!");
 
                 connection = new signalR.HubConnectionBuilder()
-                    .withUrl("/chatHub", {
-                        accessTokenFactory: () => jwtToken
-                    })
+                    .withUrl("/chatHub", { accessTokenFactory: () => jwtToken })
                     .withAutomaticReconnect()
                     .build();
 
                 connection.on("ReceiveMessage", (message) => {
-                    appendSingleMessage(message, false);
+                    if (message.chatId === activeChatId) {
+                        appendSingleMessage(message, false);
+                    } else {
+                        console.log(`Пришло сообщение в фоновый чат: ${message.chatId}`);
+                    }
                 });
 
                 await connection.start();
 
                 document.getElementById("authSection").style.display = "none";
-                document.getElementById("chatWindow").style.display = "block";
+                document.getElementById("mainInterface").style.display = "block";
                 console.log("Успешное защищенное подключение к SignalR");
+
+                await loadUserChats();
+                document.getElementById("messagesList").addEventListener("scroll", handleScroll);
             } catch (err) {
                 console.error("Ошибка:", err);
                 alert("Ошибка: " + err.message);
             }
         }
 
-        async function joinRoom() {
-            chatId = document.getElementById("chatIdInput").value.trim();
-            if (!chatId || !connection) {
-                alert("Введите корректный ID комнаты!");
-                return;
+        async function loadUserChats() {
+            try {
+                const response = await fetch('/chats', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) throw new Error("Не удалось загрузить список чатов");
+
+                const chats = await response.json();
+                const container = document.getElementById("chatsListContainer");
+                container.innerHTML = "";
+
+                chats.forEach(chat => {
+                    const item = document.createElement("div");
+                    item.classList.add("chat-item");
+                    item.id = `chat-item-${chat.id}`;
+                    item.innerText = chat.name;
+                    item.onclick = () => selectChat(chat.id, chat.name);
+                    container.appendChild(item);
+                });
+            } catch (err) {
+                console.error(err);
             }
+        }
+
+        async function selectChat(chatId, chatName) {
+            if (activeChatId === chatId) return;
+
+            if (activeChatId) {
+                document.getElementById(`chat-item-${activeChatId}`)?.classList.remove("active");
+            }
+            activeChatId = chatId;
+            document.getElementById(`chat-item-${activeChatId}`).classList.add("active");
 
             oldestMessageId = null;
             hasMoreMessages = true;
             document.getElementById("messagesList").innerHTML = "";
 
+            document.getElementById("noChatSelected").style.display = "none";
+            document.getElementById("activeChatArea").style.display = "flex";
+            document.getElementById("currentChatTitle").innerText = chatName;
+
+            await loadMoreMessages();
+
             try {
-                await loadMoreMessages();
-
                 await connection.invoke("JoinChat", chatId);
-
-                document.getElementById("chatArea").style.display = "block";
-                document.getElementById("roomTitle").innerHTML = `Вы в комнате: ${chatId.substring(0, 8)}...`;
-                document.getElementById("chatIdInput").disabled = true;
-                document.getElementById("joinBtn").disabled = true;
-
-                const list = document.getElementById("messagesList");
-                list.addEventListener("scroll", handleScroll);
-
-                console.log("Успешно вошли в группу чата");
             } catch (err) {
-                console.error("Ошибка входа в комнату:", err);
-                alert("Не удалось войти в комнату: " + err.message);
+                console.error("SignalR JoinChat error:", err);
             }
         }
 
@@ -209,13 +346,10 @@
             isLoadingMessages = true;
 
             const list = document.getElementById("messagesList");
-
             const previousScrollHeight = list.scrollHeight;
 
-            let url = `/chats/${chatId}/messages?limit=20`;
-            if (oldestMessageId) {
-                url += `&beforeMessageId=${oldestMessageId}`;
-            }
+            let url = `/chats/${activeChatId}/messages?limit=20`;
+            if (oldestMessageId) url += `&beforeMessageId=${oldestMessageId}`;
 
             try {
                 const response = await fetch(url, {
@@ -226,6 +360,7 @@
                 if (!response.ok) throw new Error("Ошибка загрузки истории");
 
                 const messages = await response.json();
+                console.log("Вот что пришло с бэкенда в первом элементе:", messages[0]);
 
                 if (messages.length === 0) {
                     hasMoreMessages = false;
@@ -263,7 +398,17 @@
             const list = document.getElementById("messagesList");
             const msgDiv = document.createElement("div");
             msgDiv.classList.add("msg");
-            msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
+
+            const username = message.senderUsername || (message.sender ? message.sender.username : null);
+            const nameToShow = username || `Пользователь [${message.senderId.substring(0, 5)}]`;
+
+            if (message.senderId === currentUserId) {
+                msgDiv.classList.add("outgoing");
+                msgDiv.innerHTML = `<span class="msg-sender">Я</span>${message.text}`;
+            } else {
+                msgDiv.classList.add("incoming");
+                msgDiv.innerHTML = `<span class="msg-sender">${nameToShow}</span>${message.text}`;
+            }
 
             if (prepend) {
                 list.insertBefore(msgDiv, list.firstChild);
@@ -276,10 +421,10 @@
         async function sendMessage() {
             const textInput = document.getElementById("messageTextInput");
             const text = textInput.value.trim();
-            if (!text || !connection) return;
+            if (!text || !connection || !activeChatId) return;
 
             try {
-                await connection.invoke("SendMessage", chatId, text);
+                await connection.invoke("SendMessage", activeChatId, text);
                 textInput.value = "";
             } catch (err) {
                 console.error("Ошибка отправки:", err);
