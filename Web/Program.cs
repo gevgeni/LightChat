@@ -108,22 +108,6 @@ app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
     return Results.Ok(user);
 });
 
-app.MapPost("/api/chats", async (CreateChatDto dto, IChatRepository chatRepo) =>
-{
-    if (string.IsNullOrWhiteSpace(dto.Name))
-        return Results.BadRequest("Название чата не может быть пустым.");
-
-    var chat = new LightChat.Core.Entities.Chat
-    {
-        Id = Guid.NewGuid(),
-        Name = dto.Name,
-        CreatedAt = DateTime.UtcNow
-    };
-
-    await chatRepo.CreateAsync(chat);
-    return Results.Ok(chat);
-});
-
 app.MapPost("/api/chats/members", async (AddMemberDto dto, IChatRepository chatRepo, IUserRepository userRepo) =>
 {
     var userExists = await userRepo.ExistsAsync(dto.UserId);
@@ -250,6 +234,38 @@ app.MapGet("/chats", async (
 })
 .RequireAuthorization();
 
+app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
+{
+    var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+        return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(dto.Name))
+        return Results.BadRequest("Название чата не может быть пустым.");
+
+    var chat = new LightChat.Core.Entities.Chat
+    {
+        Id = Guid.NewGuid(),
+        Name = dto.Name,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    var member = new LightChat.Core.Entities.ChatMember
+    {
+        ChatId = chat.Id,
+        UserId = userId,
+        JoinedAt = DateTime.UtcNow
+    };
+
+    await chatRepository.CreateGroupChatAsync(chat, member);
+    return Results.Ok(new
+    {
+        id = chat.Id,
+        name = chat.Name,
+        createdAt = chat.CreatedAt
+    });
+});
+
 app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, HttpContext context) =>
 {
     var membersAsUsers = await chatRepository.GetMembersAsync(chatId);
@@ -263,6 +279,8 @@ app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRe
 
     return Results.Ok(results);
 });
+
+
 #endregion
 
 app.UseHttpsRedirection();
