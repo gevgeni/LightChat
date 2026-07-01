@@ -11,5 +11,6 @@ namespace LightChat.Core.Repositories
         Task<bool> IsMemberAsync(Guid chatId, Guid userId);
 
         Task<IEnumerable<Chat>> GetUserChatsAsync(Guid userId);
+        Task<IEnumerable<User>> GetMembersAsync(Guid chatId);
     }
 }

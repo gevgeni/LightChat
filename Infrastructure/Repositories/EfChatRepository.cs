@@ -37,6 +37,14 @@ namespace LightChat.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<User>> GetMembersAsync(Guid chatId)
+        {
+            return await _context.ChatMembers
+                .Where(cm => cm.ChatId == chatId)
+                .Select(cm => cm.User)
+                .ToListAsync();
+        }
+
         public async Task<bool> IsMemberAsync(Guid chatId, Guid userId)
             => await _context.ChatMembers.AnyAsync(cm => cm.ChatId == chatId && cm.UserId == userId);
     }
