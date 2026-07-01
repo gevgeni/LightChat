@@ -188,35 +188,35 @@ app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbC
 
 app.MapGet("chats/{chatId:guid}/messages", async (
     Guid chatId,
-    ApplicationDbContext dbContext,
+    int limit,
+    Guid? beforeMessageId,
+    IChatRepository chatRepository,
+    IMessageRepository messageRepository,
     ClaimsPrincipal user) =>
+{
+    var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+        return Results.Unauthorized();
+
+    var isMember = await chatRepository.IsMemberAsync(chatId, userId);
+    if (!isMember)
+        return Results.Forbid();
+
+    var effectiveLimit = limit > 0 ? limit : 50;
+    var messages = await messageRepository.GetChatHistoryAsync(chatId, effectiveLimit, beforeMessageId);
+
+    var result = messages.Select(m => new
     {
-        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
-            return Results.Unauthorized();
-
-        var isMember = await dbContext.ChatMembers
-            .AnyAsync(cm => cm.ChatId == chatId && cm.UserId == userId);
-
-        if (!isMember)
-            return Results.Forbid();
-
-        var messages = await dbContext.Messages
-            .Where(m => m.ChatId == chatId)
-            .OrderBy(m => m.SentAt)
-            .Take(50)
-            .Select(m => new
-            {
-                id = m.Id,
-                chatId = m.ChatId,
-                senderId = m.SenderId,
-                text = m.Text,
-                sentAt = m.SentAt
-            })
-            .ToListAsync();
-
-        return Results.Ok(messages);
+        id = m.Id,
+        chatId = m.ChatId,
+        senderId = m.SenderId,
+        text = m.Text,
+        sentAt = m.SentAt
     });
+
+    return Results.Ok(messages);
+})
+.RequireAuthorization();
 #endregion
 
 app.UseHttpsRedirection();

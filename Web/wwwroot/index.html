@@ -90,7 +90,6 @@
     </style>
 </head>
 <body>
-
     <div class="field">
         <h2>LightChat Тест-Панель</h2>
 
@@ -127,6 +126,10 @@
         let jwtToken = "";
         let chatId = "";
 
+        let oldestMessageId = null;
+        let isLoadingMessages = false;
+        let hasMoreMessages = true;
+
         async function loginAndConnect() {
             const username = document.getElementById("usernameInput").value.trim();
             if (!username) {
@@ -141,9 +144,7 @@
                     body: JSON.stringify({ username: username })
                 });
 
-                if (!response.ok) {
-                    throw new Error("Неверное имя пользователя или ошибка сервера");
-                }
+                if (!response.ok) throw new Error("Неверное имя пользователя");
 
                 const data = await response.json();
                 jwtToken = data.token;
@@ -158,13 +159,7 @@
                     .build();
 
                 connection.on("ReceiveMessage", (message) => {
-                    const msgDiv = document.createElement("div")
-                    msgDiv.classList.add("msg");
-                    msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
-
-                    const list = document.getElementById("messagesList");
-                    list.appendChild(msgDiv);
-                    list.scrollTop = list.scrollHeight;
+                    appendSingleMessage(message, false);
                 });
 
                 await connection.start();
@@ -185,35 +180,12 @@
                 return;
             }
 
+            oldestMessageId = null;
+            hasMoreMessages = true;
+            document.getElementById("messagesList").innerHTML = "";
+
             try {
-                const response = await fetch(`/chats/${chatId}/messages`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${jwtToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 403) {
-                        throw new Error("Вы не являетесь участником этого чата.");
-                    }
-                    throw new Error("Не удалось загрузить историю сообщений.");
-                }
-
-                const messages = await response.json();
-                const list = document.getElementById("messagesList");
-                list.innerHTML = "";
-
-                messages.forEach(message => {
-                    const msgDiv = document.createElement("div");
-                    msgDiv.classList.add("msg");
-                    msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
-                    list.appendChild(msgDiv);
-                });
-
-                list.scrollTop = list.scrollHeight;
-
-                console.log(`Загружено ${messages.length} старых сообщений.`);
+                await loadMoreMessages();
 
                 await connection.invoke("JoinChat", chatId);
 
@@ -221,6 +193,10 @@
                 document.getElementById("roomTitle").innerHTML = `Вы в комнате: ${chatId.substring(0, 8)}...`;
                 document.getElementById("chatIdInput").disabled = true;
                 document.getElementById("joinBtn").disabled = true;
+
+                const list = document.getElementById("messagesList");
+                list.addEventListener("scroll", handleScroll);
+
                 console.log("Успешно вошли в группу чата");
             } catch (err) {
                 console.error("Ошибка входа в комнату:", err);
@@ -228,10 +204,78 @@
             }
         }
 
+        async function loadMoreMessages() {
+            if (isLoadingMessages || !hasMoreMessages) return;
+            isLoadingMessages = true;
+
+            const list = document.getElementById("messagesList");
+
+            const previousScrollHeight = list.scrollHeight;
+
+            let url = `/chats/${chatId}/messages?limit=20`;
+            if (oldestMessageId) {
+                url += `&beforeMessageId=${oldestMessageId}`;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) throw new Error("Ошибка загрузки истории");
+
+                const messages = await response.json();
+
+                if (messages.length === 0) {
+                    hasMoreMessages = false;
+                    isLoadingMessages = false;
+                    return;
+                }
+
+                oldestMessageId = messages[0].id;
+
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    appendSingleMessage(messages[i], true);
+                }
+
+                if (previousScrollHeight > 0) {
+                    list.scrollTop = list.scrollHeight - previousScrollHeight;
+                } else {
+                    list.scrollTop = list.scrollHeight;
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                isLoadingMessages = false;
+            }
+        }
+
+        function handleScroll() {
+            const list = document.getElementById("messagesList");
+
+            if (list.scrollTop === 0) {
+                loadMoreMessages();
+            }
+        }
+
+        function appendSingleMessage(message, prepend = false) {
+            const list = document.getElementById("messagesList");
+            const msgDiv = document.createElement("div");
+            msgDiv.classList.add("msg");
+            msgDiv.innerHTML = `<b>Пользователь [${message.senderId.substring(0, 5)}...]:</b> ${message.text}`;
+
+            if (prepend) {
+                list.insertBefore(msgDiv, list.firstChild);
+            } else {
+                list.appendChild(msgDiv);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
         async function sendMessage() {
             const textInput = document.getElementById("messageTextInput");
             const text = textInput.value.trim();
-
             if (!text || !connection) return;
 
             try {
