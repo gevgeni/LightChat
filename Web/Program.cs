@@ -192,6 +192,7 @@ app.MapGet("chats/{chatId:guid}/messages", async (
     Guid? beforeMessageId,
     IChatRepository chatRepository,
     IMessageRepository messageRepository,
+    IUserRepository userRepository,
     ClaimsPrincipal user) =>
 {
     var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -205,16 +206,28 @@ app.MapGet("chats/{chatId:guid}/messages", async (
     var effectiveLimit = limit > 0 ? limit : 50;
     var messages = await messageRepository.GetChatHistoryAsync(chatId, effectiveLimit, beforeMessageId);
 
-    var result = messages.Select(m => new
+    return Results.Ok(messages);
+})
+.RequireAuthorization();
+
+app.MapGet("/chats", async (
+    IChatRepository chatRepo,
+    ClaimsPrincipal user) =>
+{
+    var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+        return Results.Unauthorized();
+
+    var userChats = await chatRepo.GetUserChatsAsync(userId);
+
+    var result = userChats.Select(c => new
     {
-        id = m.Id,
-        chatId = m.ChatId,
-        senderId = m.SenderId,
-        text = m.Text,
-        sentAt = m.SentAt
+        id = c.Id,
+        name = c.Name,
+        createdAt = c.CreatedAt
     });
 
-    return Results.Ok(messages);
+    return Results.Ok(result);
 })
 .RequireAuthorization();
 #endregion
