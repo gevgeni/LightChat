@@ -11,11 +11,13 @@ namespace LightChat.Web.Hubs
     {
         private readonly IMessageRepository _messageRepository;
         private readonly IChatRepository _chatRepository;
+        private readonly IUserRepository _userRepository;
 
-        public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository)
+        public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository, IUserRepository userRepository)
         {
             _messageRepository = messageRepository;
             _chatRepository = chatRepository;
+            _userRepository = userRepository;
         }
 
         /// <summary>
@@ -28,6 +30,9 @@ namespace LightChat.Web.Hubs
             var isMember = await _chatRepository.IsMemberAsync(chatId, userId);
             if (!isMember)
                 throw new HubException("Вы не являетесь участником этого чата.");
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            var username = user?.Username ?? "Неизвестный";
 
             var message = new Message
             {
@@ -45,6 +50,7 @@ namespace LightChat.Web.Hubs
                 id = message.Id,
                 chatId = message.ChatId,
                 senderId = message.SenderId,
+                senderUsername = username,
                 text = message.Text,
                 sentAt = message.SentAt
             });
