@@ -27,9 +27,11 @@ namespace LightChat.Web.Hubs
         {
             var userId = GetUserId();
 
-            var isMember = await _chatRepository.IsMemberAsync(chatId, userId);
-            if (!isMember)
+            if (Context.Items["AuthorizedChats"] is not HashSet<Guid> authorizedChats 
+                || !authorizedChats.Contains(chatId))
+            {
                 throw new HubException("Вы не являетесь участником этого чата.");
+            }
 
             var user = await _userRepository.GetByIdAsync(userId);
             var username = user?.Username ?? "Неизвестный";
@@ -68,13 +70,25 @@ namespace LightChat.Web.Hubs
                 throw new HubException("Вы не являетесь участником этого чата.");
 
             await Groups.AddToGroupAsync(Context.ConnectionId, chatId.ToString());
+
+            if (Context.Items["AuthorizedChats"] is not HashSet<Guid> authorizedChats)
+            {
+                authorizedChats = [];
+                Context.Items["AuthorizedChats"] = authorizedChats;
+            }
+            authorizedChats.Add(chatId);
         }
 
         /// <summary>
         /// Покидание юзером чата
         /// </summary>
         public async Task LeaveChat(Guid chatId)
-            => await Groups.RemoveFromGroupAsync(Context.ConnectionId, chatId.ToString());
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, chatId.ToString());
+
+            if (Context.Items["AuthorizedChats"] is HashSet<Guid> authorizedChats)
+                authorizedChats.Remove(chatId);
+        }
 
         private Guid GetUserId()
         {
