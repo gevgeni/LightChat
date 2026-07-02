@@ -68,8 +68,6 @@ builder.Services.AddAuthentication(options =>
 });
 #endregion
 
-builder.Services.AddAuthentication();
-
 var app = builder.Build();
 
 #region Формирование миграций при старте
@@ -84,6 +82,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 #region Minimal API Эндпоинты
+//endpoint - регистрация пользователя
 app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
 {
     if (string.IsNullOrWhiteSpace(dto.Username))
@@ -146,6 +145,7 @@ app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbC
     return Results.Ok(new { Token = tokenString } );
 });
 
+//endpoint - получение истории сообщений
 app.MapGet("chats/{chatId:guid}/messages", async (
     Guid chatId,
     int limit,
@@ -189,6 +189,7 @@ app.MapGet("chats/{chatId:guid}/messages", async (
 })
 .RequireAuthorization();
 
+//endpoint - получение всех чатов пользователя
 app.MapGet("/chats", async (
     IChatRepository chatRepo,
     ClaimsPrincipal user) =>
@@ -210,6 +211,7 @@ app.MapGet("/chats", async (
 })
 .RequireAuthorization();
 
+//endpoint - создание чата
 app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
 {
     var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -240,8 +242,10 @@ app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, 
         name = chat.Name,
         createdAt = chat.CreatedAt
     });
-});
+})
+.RequireAuthorization();
 
+//endpoint - получение участников чата
 app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, HttpContext context) =>
 {
     var membersAsUsers = await chatRepository.GetMembersAsync(chatId);
@@ -303,9 +307,11 @@ app.MapGet("/users", async (IUserRepository userRepository, ClaimsPrincipal user
         {
             id = u.Id,
             username = u.Username
-});
+        });
 
-
+    return Results.Ok(result);
+})
+.RequireAuthorization();
 #endregion
 
 app.UseHttpsRedirection();
