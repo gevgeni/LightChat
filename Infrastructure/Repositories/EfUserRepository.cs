@@ -25,6 +25,11 @@ namespace LightChat.Infrastructure.Repositories
             => await _context.Users.AnyAsync(u => u.Id == id);
 
         public async Task<List<User>> GetAllAsync()
+            => await _context.Users.ToListAsync();
+
+        public async Task<List<User>> GetAllContainsInIdsAsync(List<Guid> ids)
+            => await _context.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
+
         public async Task<User?> GetByIdAsync(Guid id)
             => await _context.Users.FindAsync(id);
 
