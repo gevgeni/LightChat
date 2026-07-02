@@ -238,6 +238,10 @@
                         <button onclick="openCreateChatModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">+</button>
                     </div>
                     <div class="chats-list" id="chatsListContainer"></div>
+
+                    <div style="padding: 15px; background: #243036; text-align: center;">
+                        <button onclick="logout()" style="background: #e63946; width: 100%; padding: 8px;">Выйти из аккаунта</button>
+                    </div>
                 </div>
 
                 <div class="chat-window">
@@ -314,6 +318,23 @@
             }
         }
 
+        window.onload = async function () {
+            const savedToken = localStorage.getItem("lightchat_token");
+            if (savedToken) {
+                const parsed = parseJwt(savedToken);
+                if (parsed && parsed.exp) {
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    if (parsed.exp > currentTime) {
+                        jwtToken = savedToken;
+                        currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
+                        await initializeApp();
+                        return;
+                    }
+                }
+                localStorage.removeItem("lightchat_token");
+            }
+        }
+
         async function loginAndLoadApp() {
             const username = document.getElementById("usernameInput").value.trim();
             if (!username) {
@@ -334,10 +355,20 @@
                 jwtToken = data.token;
 
                 const parsed = parseJwt(jwtToken);
+
+                localStorage.setItem("lightchat_token", jwtToken)
                 currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
 
                 console.log("JWT получен успешно!");
+                await initializeApp();
+            } catch (err) {
+                console.error("Ошибка:", err);
+                alert("Ошибка: " + err.message);
+            }
+        }
 
+        async function initializeApp() {
+            try {
                 connection = new signalR.HubConnectionBuilder()
                     .withUrl("/chatHub", { accessTokenFactory: () => jwtToken })
                     .withAutomaticReconnect()
@@ -363,6 +394,18 @@
                 console.error("Ошибка:", err);
                 alert("Ошибка: " + err.message);
             }
+        }
+
+        function logout() {
+            localStorage.removeItem("lightchat_token");
+            jwtToken = "";
+            currentUserId = null;
+            activeChatId = null;
+
+            if (connection) { connection.stop(); }
+
+            document.getElementById("mainInterface").style.display = "none";
+            document.getElementById("authSection").style.display = "flex";
         }
 
         async function loadChatMembers(chatId) {
