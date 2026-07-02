@@ -303,7 +303,6 @@
 
         function parseJwt(token) {
             try {
-                if (!token) return null;
                 const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
@@ -335,19 +334,6 @@
                 jwtToken = data.token;
 
                 const parsed = parseJwt(jwtToken);
-                if (!parsed) {
-                    alert("Получен некорректный токен сессии.");
-                    return;
-                }
-
-                if (parsed.exp) {
-                    const currentTime = Math.floor(Date.now() / 1000);
-                    if (parsed.exp < currentTime) {
-                        alert("Время сессии токена уже истекло. Попробуйте войти снова.");
-                        return;
-                    }
-                }
-
                 currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
 
                 console.log("JWT получен успешно!");
@@ -381,7 +367,7 @@
 
         async function loadChatMembers(chatId) {
             try {
-                const response = await secureFetch(`/chats/${chatId}/members`, {
+                const response = await fetch(`/chats/${chatId}/members`, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -411,7 +397,7 @@
 
         async function loadUserChats() {
             try {
-                const response = await secureFetch('/chats', {
+                const response = await fetch('/chats', {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -473,7 +459,7 @@
             if (oldestMessageId) url += `&beforeMessageId=${oldestMessageId}`;
 
             try {
-                const response = await secureFetch(url, {
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -520,7 +506,7 @@
             const msgDiv = document.createElement("div");
             msgDiv.classList.add("msg");
 
-            const username = message.senderUsername;
+            const username = message.senderUsername || (message.sender ? message.sender.username : null);
             const nameToShow = username || `Пользователь [${message.senderId.substring(0, 5)}]`;
 
             if (message.senderId === currentUserId) {
@@ -574,7 +560,7 @@
             }
 
             try {
-                const response = await secureFetch('/chats', {
+                const response = await fetch('/chats', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`,
@@ -599,24 +585,6 @@
                 console.error("Не удалось создать чат:", err);
                 alert(err.message);
             }
-        }
-
-        async function secureFetch(url, options = {}) {
-            options.headers = options.headers || {};
-            if (jwtToken) {
-                options.headers['Authorization'] = `Bearer ${jwtToken}`;
-            }
-
-            const response = await fetch(url, options);
-
-            if (response.status === 401) {
-                alert("Ваша сессия прервана или истекла. Пожалуйста, войдите снова.");
-                document.getElementById("mainInterface").style.display = "none";
-                document.getElementById("authSection").style.display = "flex";
-                if (connection) { connection.stop(); }
-            }
-
-            return response;
         }
 
         async function openAddMemberModal() {
