@@ -24,6 +24,7 @@ namespace LightChat.Infrastructure.Repositories
         public async Task<bool> ExistsAsync(Guid id)
             => await _context.Users.AnyAsync(u => u.Id == id);
 
+        public async Task<List<User>> GetAllAsync()
         public async Task<User?> GetByIdAsync(Guid id)
             => await _context.Users.FindAsync(id);
 
