@@ -224,7 +224,7 @@
             <div class="auth-box">
                 <h2 style="text-align: center; margin-bottom: 20px;">Войти в LightChat</h2>
                 <div style="margin-bottom: 15px;">
-                    <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;"/>
+                    <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;" />
                 </div>
                 <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
             </div>
@@ -256,7 +256,10 @@
                             </div>
 
                             <div class="members-sidebar">
-                                <div class="members-header">В чате (<span id="membersCount">0</span>)</div>
+                                <div class="members-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px;">
+                                    <span>В чате (<span id="membersCount">0</span>)</span>
+                                    <button onclick="openAddMemberModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">+</button>
+                                </div>
                                 <div class="members-list" id="chatMembersContainer"></div>
                             </div>
                         </div>
@@ -272,8 +275,19 @@
                 <h3 style="margin: 0;">Новый чат</h3>
                 <button onclick="closeCreateChatModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
             </div>
-            <input type="text" id="newChatNameInput" placeholder="Введите название чата..." style="padding: 8px; border: 1px solid #e1e4e6; border-radius: 6px; font-size: 14px;"/>
+            <input type="text" id="newChatNameInput" placeholder="Введите название чата..." style="padding: 8px; border: 1px solid #e1e4e6; border-radius: 6px; font-size: 14px;" />
             <button onclick="submitCreateChat()" style="background: #2ec4b6; color: white; border: none; padding: 10px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: bold;">Создать</button>
+        </div>
+    </div>
+
+    <div id="addMemberModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 8px; width: 320px; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">Добавить участника</h3>
+                <button onclick="closeAddMemberModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="addMemberUsersList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 250px;">
+            </div>
         </div>
     </div>
 
@@ -289,6 +303,7 @@
 
         function parseJwt(token) {
             try {
+                if (!token) return null;
                 const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
@@ -320,6 +335,19 @@
                 jwtToken = data.token;
 
                 const parsed = parseJwt(jwtToken);
+                if (!parsed) {
+                    alert("Получен некорректный токен сессии.");
+                    return;
+                }
+
+                if (parsed.exp) {
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    if (parsed.exp < currentTime) {
+                        alert("Время сессии токена уже истекло. Попробуйте войти снова.");
+                        return;
+                    }
+                }
+
                 currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
 
                 console.log("JWT получен успешно!");
@@ -353,7 +381,7 @@
 
         async function loadChatMembers(chatId) {
             try {
-                const response = await fetch(`/chats/${chatId}/members`, {
+                const response = await secureFetch(`/chats/${chatId}/members`, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -383,7 +411,7 @@
 
         async function loadUserChats() {
             try {
-                const response = await fetch('/chats', {
+                const response = await secureFetch('/chats', {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -445,7 +473,7 @@
             if (oldestMessageId) url += `&beforeMessageId=${oldestMessageId}`;
 
             try {
-                const response = await fetch(url, {
+                const response = await secureFetch(url, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
@@ -492,7 +520,7 @@
             const msgDiv = document.createElement("div");
             msgDiv.classList.add("msg");
 
-            const username = message.senderUsername || (message.sender ? message.sender.username : null);
+            const username = message.senderUsername;
             const nameToShow = username || `Пользователь [${message.senderId.substring(0, 5)}]`;
 
             if (message.senderId === currentUserId) {
@@ -546,7 +574,7 @@
             }
 
             try {
-                const response = await fetch('/chats', {
+                const response = await secureFetch('/chats', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`,
@@ -569,6 +597,96 @@
                 selectChat(newChat.id, newChat.name);
             } catch (err) {
                 console.error("Не удалось создать чат:", err);
+                alert(err.message);
+            }
+        }
+
+        async function secureFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            if (jwtToken) {
+                options.headers['Authorization'] = `Bearer ${jwtToken}`;
+            }
+
+            const response = await fetch(url, options);
+
+            if (response.status === 401) {
+                alert("Ваша сессия прервана или истекла. Пожалуйста, войдите снова.");
+                document.getElementById("mainInterface").style.display = "none";
+                document.getElementById("authSection").style.display = "flex";
+                if (connection) { connection.stop(); }
+            }
+
+            return response;
+        }
+
+        async function openAddMemberModal() {
+            if (!activeChatId) return;
+
+            const modal = document.getElementById("addMemberModal");
+            const container = document.getElementById("addMemberUsersList");
+            container.innerHTML = "<div style='text-align:center; color:#888;'>Загрузка...</div>";
+            modal.style.display = "flex";
+
+            try {
+                const response = await fetch('/users', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) throw new Error("Не удалось загрузить список пользователей");
+                const users = await response.json();
+
+                container.innerHTML = "";
+
+                if (users.length === 0) {
+                    container.innerHTML = "<div style='text-align:center; color:#888;'>Нет доступных пользователей</div>";
+                    return;
+                }
+
+                users.forEach(user => {
+                    const row = document.createElement("div");
+                    row.style.cssText = "padding: 10px; background: #f7f9fa; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;";
+                    row.onmouseover = () => row.style.background = "#e1e4e6";
+                    row.onmouseout = () => row.style.background = "#f7f9fa";
+
+                    row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#2ec4b6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Пригласить</button>`;
+
+                    row.onclick = () => submitAddMember(user.id);
+                    container.appendChild(row);
+                });
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = "<div style='text-align:center; color:red;'>Ошибка загрузки</div>";
+            }
+        }
+
+        function closeAddMemberModal() {
+            document.getElementById("addMemberModal").style.display = "none";
+        }
+
+        async function submitAddMember(targetUserId) {
+            try {
+                const response = await fetch(`/chats/${activeChatId}/members`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userId: targetUserId })
+                });
+
+                if (!response.ok) {
+                    const txt = await response.text();
+                    throw new Error(txt || "Не удалось добавить участника");
+                }
+
+                closeAddMemberModal();
+
+                await loadChatMembers(activeChatId);
+
+            } catch (err) {
+                console.error(err);
                 alert(err.message);
             }
         }
