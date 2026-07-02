@@ -11,6 +11,7 @@ using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using LightChat.Core.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -167,13 +168,9 @@ app.MapGet("chats/{chatId:guid}/messages", async (
     var messages = await messageRepository.GetChatHistoryAsync(chatId, effectiveLimit, beforeMessageId);
 
     var senderIds = messages.Select(m => m.SenderId).Distinct().ToList();
-    var usernamesDict = new Dictionary<Guid, string>();
+    List<User> explicitUsers = await userRepository.GetAllContainsInIdsAsync(senderIds);
 
-    foreach (var id in senderIds)
-    {
-        var u = await userRepository.GetByIdAsync(id);
-        if (u != null) usernamesDict[id] = u.Username;
-    }
+    var usernamesDict = explicitUsers.ToDictionary(u => u.Id, u => u.Username);
 
     var result = messages.Select(m => new
     {
