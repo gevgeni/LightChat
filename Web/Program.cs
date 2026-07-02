@@ -108,31 +108,7 @@ app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
     return Results.Ok(user);
 });
 
-app.MapPost("/api/chats/members", async (AddMemberDto dto, IChatRepository chatRepo, IUserRepository userRepo) =>
-{
-    var userExists = await userRepo.ExistsAsync(dto.UserId);
-    if (!userExists)
-        return Results.NotFound("Пользователь не найден.");
-
-    var chat = await chatRepo.GetByIdAsync(dto.ChatId);
-    if (chat == null)
-        return Results.NotFound("Чат не найден.");
-
-    var isAlreadyMember = await chatRepo.IsMemberAsync(dto.ChatId, dto.UserId);
-    if (isAlreadyMember)
-        return Results.Conflict("Пользователь уже состоит в этом чате.");
-
-    var member = new LightChat.Core.Entities.ChatMember
-    {
-        ChatId = dto.ChatId,
-        UserId = dto.UserId,
-        JoinedAt = DateTime.UtcNow
-    };
-
-    await chatRepo.AddMemberAsync(member);
-    return Results.Ok("Пользователь успешно добавлен в чат.");
-});
-
+//endpoint - авторизация пользователя с Json Web Token
 app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbContext, IConfiguration configuration) =>
 {
     if (string.IsNullOrWhiteSpace(request.Username))
@@ -278,6 +254,55 @@ app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRe
     });
 
     return Results.Ok(results);
+})
+.RequireAuthorization();
+
+//endpoint - добавление участников в чат
+app.MapPost("/chats/{chatId:guid}/members", async (Guid chatId, AddMemberDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
+{
+    var chat = await chatRepository.GetByIdAsync(chatId);
+    if (chat == null)
+        return Results.NotFound("Чат не найден.");
+
+    var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+        return Results.Unauthorized();
+
+    var isCurrentMember = await chatRepository.IsMemberAsync(chatId, userId);
+    if (!isCurrentMember)
+        return Results.Forbid();
+
+    var isAlreadyMember = await chatRepository.IsMemberAsync(chatId, dto.UserId);
+    if (isAlreadyMember)
+        return Results.Conflict("Пользователь уже состоит в этом чате.");
+
+    var member = new LightChat.Core.Entities.ChatMember
+    {
+        ChatId = chatId,
+        UserId = dto.UserId,
+        JoinedAt = DateTime.UtcNow
+    };
+
+    await chatRepository.AddMemberAsync(member);
+    return Results.Ok("Пользователь успешно добавлен в чат.");
+})
+.RequireAuthorization();
+
+//endpoint - получение всех пользователей
+app.MapGet("/users", async (IUserRepository userRepository, ClaimsPrincipal user) =>
+{
+    var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var currentUserId))
+        return Results.Unauthorized();
+
+    var allUsers = await userRepository.GetAllAsync();
+
+    var result = allUsers
+        .Where(u => u.Id != currentUserId)
+        .Select(u => new
+        {
+            id = u.Id,
+            username = u.Username
 });
 
 
