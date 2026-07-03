@@ -213,19 +213,33 @@ app.MapGet("/chats", async (
         return Results.Unauthorized();
 
     var userChats = await chatRepo.GetUserChatsAsync(userId);
+    var resultList = new List<object>();
 
-    var result = userChats.Select(c => new
+    foreach (var c in userChats)
     {
-        id = c.Id,
-        name = c.Name,
-        createdAt = c.CreatedAt
-    });
+        string finalName = c.Name;
 
-    return Results.Ok(result);
+        if (c.IsDirect)
+        {
+            var members = await chatRepo.GetMembersAsync(c.Id);
+            var companion = members.FirstOrDefault(m => m.Id != userId);
+            finalName = companion != null ? companion.Username : "Удаленный пользователь";
+        }
+
+        resultList.Add(new
+        {
+            id = c.Id,
+            name = finalName,
+            isDirect = c.IsDirect,
+            createdAt = c.CreatedAt
+        });
+    }
+
+    return Results.Ok(resultList);
 })
 .RequireAuthorization();
 
-//endpoint - создание чата
+//endpoint - создание групового чата
 app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
 {
     var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -235,14 +249,14 @@ app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, 
     if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest("Название чата не может быть пустым.");
 
-    var chat = new LightChat.Core.Entities.Chat
+    var chat = new Chat
     {
         Id = Guid.NewGuid(),
         Name = dto.Name,
         CreatedAt = DateTime.UtcNow
     };
 
-    var member = new LightChat.Core.Entities.ChatMember
+    var member = new ChatMember
     {
         ChatId = chat.Id,
         UserId = userId,
@@ -256,6 +270,37 @@ app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, 
         name = chat.Name,
         createdAt = chat.CreatedAt
     });
+})
+.RequireAuthorization();
+
+//endpoint - создание личного чата
+app.MapPost("/chats/direct", async (CreateDirectChatRequest request, IChatRepository chatRepository, ClaimsPrincipal principal) =>
+{
+    var currentUserIdString = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                ?? principal.FindFirst("sub")?.Value;
+    if (!Guid.TryParse(currentUserIdString, out var currentUserId)) return Results.Unauthorized();
+
+    var targetUserId = request.TargetUserId;
+    if (targetUserId == currentUserId) return Results.BadRequest("Нельзя создать личный чат с самим собой.");
+
+    var existingChat = await chatRepository.GetDirectChatAsync(currentUserId, targetUserId);
+    if (existingChat != null)
+        return Results.Ok(new { id = existingChat.Id, name = "Личный чат", isDirect = true });
+
+    var newChat = new Chat
+    {
+        Id = Guid.NewGuid(),
+        Name = "DM",
+        IsDirect = true,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    var currentUser = new ChatMember { ChatId = newChat.Id, UserId = currentUserId, JoinedAt = DateTime.UtcNow };
+    var targetUser = new ChatMember { ChatId = newChat.Id, UserId = targetUserId, JoinedAt = DateTime.UtcNow };
+
+    await chatRepository.CreateDirectChatAsync(newChat, currentUser, targetUser);
+
+    return Results.Ok(new { id = newChat.Id, name = "Личный чат", isDirect = true });
 })
 .RequireAuthorization();
 
@@ -281,6 +326,9 @@ app.MapPost("/chats/{chatId:guid}/members", async (Guid chatId, AddMemberDto dto
     var chat = await chatRepository.GetByIdAsync(chatId);
     if (chat == null)
         return Results.NotFound("Чат не найден.");
+
+    if (chat.IsDirect)
+        return Results.BadRequest("В личный чат нельзя приглашать сторонних участников.");
 
     var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
