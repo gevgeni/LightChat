@@ -240,7 +240,10 @@
                 <div class="sidebar">
                     <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px;">
                         <span>Мои чаты</span>
-                        <button onclick="openCreateChatModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">+</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button onclick="openDirectChatModal()" style="background: #007fff; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Написать лично">💬</button>
+                            <button onclick="openCreateChatModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Создать группу">+</button>
+                        </div>
                     </div>
                     <div class="chats-list" id="chatsListContainer"></div>
 
@@ -300,6 +303,18 @@
         </div>
     </div>
 
+    <div id="directChatModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 8px; width: 320px; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">Начать личный чат</h3>
+                <button onclick="closeDirectChatModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="directChatUsersList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 250px;">
+
+            </div>
+        </div>
+    </div>
+
     <script>
         let connection = null;
         let jwtToken = "";
@@ -309,6 +324,8 @@
         let oldestMessageId = null;
         let isLoadingMessages = false;
         let hasMoreMessages = true;
+
+        let isActiveChatDirect = false;
 
         function parseJwt(token) {
             try {
@@ -450,6 +467,7 @@
                     const isMe = member.id === currentUserId ? " (Вы)" : "";
 
                     item.innerHTML = `<div class="member-status"></div><span>${member.username}${isMe}</span>`;
+                    item.dataset.isDirect = chat.isDirect;
                     container.appendChild(item);
                 });
             } catch (err) {
@@ -498,6 +516,11 @@
             activeChatId = chatId;
 
             const currentChatItem = document.getElementById(`chat-item-${activeChatId}`);
+            const isDirect = currentChatItem ? currentChatItem.dataset.isDirect === 'true' : false;
+
+            const addMemberBtn = document.querySelector(".members-header button");
+            if (addMemberBtn) addMemberBtn.style.display = isDirect ? "none" : "flex";
+
             if (currentChatItem) {
                 currentChatItem.classList.add("active");
 
@@ -728,6 +751,78 @@
 
                 await loadChatMembers(activeChatId);
 
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
+        function openDirectChatModal() {
+            const modal = document.getElementById("directChatModal");
+            const container = document.getElementById("directChatUsersList");
+            container.innerHTML = "<div style='text-align:center; color:#888;'>Загрузка пользователей...</div>";
+            modal.style.display = "flex";
+
+            fetch('/users', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Не удалось загрузить пользователей");
+                return res.json();
+            })
+            .then(users => {
+                container.innerHTML = "";
+                if (users.length === 0) {
+                    container.innerHTML = "<div style='text-align:center; color:#888;'>Нет доступных пользователей</div>";
+                    return;
+                }
+
+                users.forEach(user => {
+                    const row = document.createElement("div");
+                    row.style.cssText = "padding: 10px; background: #f7f9fa; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;";
+                    row.onmouseover = () => row.style.background = "#e1e4e6";
+                    row.onmouseout = () => row.style.background = "#f7f9fa";
+
+                    row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#007fff; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Написать</button>`;
+
+                    row.onclick = () => submitStartDirectChat(user.id, user.username);
+                    container.appendChild(row);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                container.innerHTML = "<div style='text-align:center; color:red;'>Ошибка загрузки</div>";
+            });
+        }
+
+        function closeDirectChatModal() {
+            document.getElementById("directChatModal").style.display = "none";
+        }
+
+        async function submitStartDirectChat(targetUserId, targetUsername) {
+            try {
+                const response = await fetch('/chats/direct', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetUserId: targetUserId })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(errText || "Не удалось открыть личный чат");
+                }
+
+                const chat = await response.json();
+
+                closeDirectChatModal();
+
+                await loadUserChats();
+
+                selectChat(chat.id, targetUsername);
             } catch (err) {
                 console.error(err);
                 alert(err.message);
