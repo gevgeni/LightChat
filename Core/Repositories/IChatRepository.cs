@@ -12,5 +12,8 @@ namespace LightChat.Core.Repositories
         Task<IEnumerable<Chat>> GetUserChatsAsync(Guid userId);
         Task<IEnumerable<User>> GetMembersAsync(Guid chatId);
         Task CreateGroupChatAsync(Chat chat, ChatMember member);
+
+        Task<Chat?> GetDirectChatAsync(Guid currentUserId, Guid targetUserId);
+        Task CreateDirectChatAsync(Chat chat, ChatMember currentUser, ChatMember targetUser);
     }
 }

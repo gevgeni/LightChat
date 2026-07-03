@@ -48,5 +48,22 @@ namespace LightChat.Infrastructure.Repositories
 
         public async Task<bool> IsMemberAsync(Guid chatId, Guid userId)
             => await _context.ChatMembers.AnyAsync(cm => cm.ChatId == chatId && cm.UserId == userId);
+
+        public async Task<Chat?> GetDirectChatAsync(Guid currentUserId, Guid targetUserId)
+        {
+            return await _context.Chats
+                .Where(c => c.IsDirect)
+                .FirstOrDefaultAsync(c =>
+                    c.ChatMembers.Any(cm => cm.UserId == currentUserId) &&
+                    c.ChatMembers.Any(cm => cm.UserId == targetUserId));
+        }
+
+        public async Task CreateDirectChatAsync(Chat chat, ChatMember currentUser, ChatMember targetUser)
+        {
+            _context.Chats.Add(chat);
+            _context.ChatMembers.Add(currentUser);
+            _context.ChatMembers.Add(targetUser);
+            await _context.SaveChangesAsync();
+        }
     }
 }
