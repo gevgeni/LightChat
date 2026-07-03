@@ -63,6 +63,10 @@ namespace LightChat.Infrastructure.Persistence
                     .IsRequired()
                     .HasMaxLength(50);
 
+                modelBuilder.Entity<User>()
+                    .Property(u => u.PasswordHash)
+                    .IsRequired();
+
                 entity.HasIndex(u => u.Username)
                     .IsUnique();
 
