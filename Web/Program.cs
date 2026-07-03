@@ -76,6 +76,20 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.MigrateAsync();
+
+    var legacyUsers = await dbContext.Users
+        .Where(u => u.PasswordHash == string.Empty)
+        .ToListAsync();
+
+    if (legacyUsers.Count != 0)
+    {
+        string defaultHash = BCrypt.Net.BCrypt.HashPassword("123456");
+
+        foreach (var user in legacyUsers)
+            user.PasswordHash = defaultHash;
+
+        await dbContext.SaveChangesAsync();
+        Console.WriteLine($"[Migration] Успешно обновлено паролей для {legacyUsers.Count} старых пользователей. Дефолтный пароль: 123456");
 }
 #endregion
 
