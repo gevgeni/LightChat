@@ -90,6 +90,7 @@ using (var scope = app.Services.CreateScope())
 
         await dbContext.SaveChangesAsync();
         Console.WriteLine($"[Migration] Успешно обновлено паролей для {legacyUsers.Count} старых пользователей. Дефолтный пароль: 123456");
+    }
 }
 #endregion
 
@@ -103,23 +104,24 @@ app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
     if (string.IsNullOrWhiteSpace(dto.Username))
         return Results.BadRequest("Имя пользователя не может быть пустым.");
 
-    if (string.IsNullOrWhiteSpace(dto.Email))
-        return Results.BadRequest("Email не может быть пустым.");
+    if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+        return Results.BadRequest("Пароль должен быть не менее 6 символов.");
 
     var existingUser = await userRepo.GetByUsernameAsync(dto.Username);
     if (existingUser != null)
         return Results.Conflict("Пользователь с таким ником уже существует.");
 
-    var user = new LightChat.Core.Entities.User
+    var user = new User
     {
         Id = Guid.NewGuid(),
         Username = dto.Username,
         Email = dto.Email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
         CreatedAt = DateTime.UtcNow
     };
 
     await userRepo.CreateAsync(user);
-    return Results.Ok(user);
+    return Results.Ok(new { user.Id, user.Username });
 });
 
 //endpoint - авторизация пользователя с Json Web Token
@@ -129,7 +131,8 @@ app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbC
         return Results.BadRequest("Имя пользователя не может быть пустым.");
 
     var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-    if (user == null)
+
+    if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         return Results.Unauthorized();
 
     var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -157,7 +160,7 @@ app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbC
     var securityToken = tokenHandler.CreateToken(token);
     var tokenString = tokenHandler.WriteToken(securityToken);
 
-    return Results.Ok(new { Token = tokenString } );
+    return Results.Ok(new { Token = tokenString });
 });
 
 //endpoint - получение истории сообщений
@@ -263,7 +266,7 @@ app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRe
 
     var results = membersAsUsers.Select(u => new
     {
-        id =u.Id,
+        id = u.Id,
         username = u.Username,
         email = u.Email
     });
