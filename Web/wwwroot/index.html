@@ -228,6 +228,9 @@
                 <div style="margin-bottom: 15px;">
                     <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;" />
                 </div>
+                <div style="margin-bottom: 15px;">
+                    <input type="password" id="passwordInput" placeholder="Введите ваш Пароль" style="width: 100%; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') loginAndLoadApp()" />
+                </div>
                 <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
             </div>
         </div>
@@ -339,8 +342,10 @@
 
         async function loginAndLoadApp() {
             const username = document.getElementById("usernameInput").value.trim();
-            if (!username) {
-                alert("Введите имя пользователя!");
+            const password = document.getElementById("passwordInput").value;
+
+            if (!username || !password) {
+                alert("Введите имя пользователя и пароль");
                 return;
             }
 
@@ -348,10 +353,10 @@
                 const response = await fetch('/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username })
+                    body: JSON.stringify({ username: username, password: password })
                 });
 
-                if (!response.ok) throw new Error("Неверное имя пользователя");
+                if (!response.ok) throw new Error("Неверное имя пользователя или пароль");
 
                 const data = await response.json();
                 jwtToken = data.token;
