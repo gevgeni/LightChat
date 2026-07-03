@@ -179,6 +179,7 @@
             color: #888;
             font-size: 16px;
         }
+
         .members-sidebar {
             width: 280px;
             background: #ffffff;
@@ -226,9 +227,6 @@
                 <h2 style="text-align: center; margin-bottom: 20px;">Войти в LightChat</h2>
                 <div style="margin-bottom: 15px;">
                     <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;" />
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <input type="password" id="passwordInput" placeholder="Введите ваш Пароль" style="width: 100%; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') loginAndLoadApp()" />
                 </div>
                 <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
             </div>
@@ -341,10 +339,8 @@
 
         async function loginAndLoadApp() {
             const username = document.getElementById("usernameInput").value.trim();
-            const password = document.getElementById("passwordInput").value;
-
-            if (!username || !password) {
-                alert("Введите имя пользователя и пароль");
+            if (!username) {
+                alert("Введите имя пользователя!");
                 return;
             }
 
@@ -352,10 +348,10 @@
                 const response = await fetch('/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password })
+                    body: JSON.stringify({ username: username })
                 });
 
-                if (!response.ok) throw new Error("Неверное имя пользователя или пароль");
+                if (!response.ok) throw new Error("Неверное имя пользователя");
 
                 const data = await response.json();
                 jwtToken = data.token;
@@ -385,6 +381,18 @@
                         appendSingleMessage(message, false);
                     } else {
                         console.log(`Пришло сообщение в фоновый чат: ${message.chatId}`);
+
+                        try {
+                            playSystemNotificationSound();
+                        } catch (soundError) {
+                            console.error("[Audio Error] Ошибка внутри вызова звука:", soundError);
+                        }
+
+                        const chatItem = document.getElementById(`chat-item-${message.chatId}`);
+                        if (chatItem) {
+                            chatItem.style.fontWeight = "bold";
+                            chatItem.style.borderLeft = "4px solid #2ec4b6";
+                        }
                     }
                 });
 
@@ -464,6 +472,12 @@
                     item.innerText = chat.name;
                     item.onclick = () => selectChat(chat.id, chat.name);
                     container.appendChild(item);
+
+                    if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                        connection.invoke("JoinChat", chat.id).catch(err =>
+                            console.error(`Ошибка фонового подключения к чату ${chat.id}:`, err)
+                        );
+                    }
                 });
             } catch (err) {
                 console.error(err);
@@ -477,7 +491,14 @@
                 document.getElementById(`chat-item-${activeChatId}`)?.classList.remove("active");
             }
             activeChatId = chatId;
-            document.getElementById(`chat-item-${activeChatId}`).classList.add("active");
+
+            const currentChatItem = document.getElementById(`chat-item-${activeChatId}`);
+            if (currentChatItem) {
+                currentChatItem.classList.add("active");
+
+                currentChatItem.style.fontWeight = "normal";
+                currentChatItem.style.borderLeft = "none";
+            }
 
             oldestMessageId = null;
             hasMoreMessages = true;
@@ -705,6 +726,32 @@
             } catch (err) {
                 console.error(err);
                 alert(err.message);
+            }
+        }
+
+        function playSystemNotificationSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Нота Ре (D5)
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1); // Плавный взлет до Ля (A5)
+
+                gain.gain.setValueAtTime(0.15, ctx.currentTime); // Умеренная громкость
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15); // Затухание
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {
+                console.warn("[Audio] Не удалось синтезировать звук уведомления:", e);
             }
         }
     </script>
