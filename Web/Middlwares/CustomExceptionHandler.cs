@@ -28,7 +28,7 @@ namespace LightChat.Web.Middlwares
             httpContext.Response.StatusCode = problemDetails.Status.Value;
             httpContext.Response.ContentType = "application/json";
 
-            await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken)
+            await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
             return true;
         }
