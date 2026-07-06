@@ -12,10 +12,14 @@ using LightChat.Infrastructure.Repositories;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using LightChat.Core.Entities;
+using LightChat.Web.Middlwares;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR(options => options.EnableDetailedErrors = true);
+
+builder.Services.AddExceptionHandler<CustomExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 #region Настройка PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
@@ -70,6 +74,8 @@ builder.Services.AddAuthentication(options =>
 #endregion
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 #region Формирование миграций при старте
 using (var scope = app.Services.CreateScope())
