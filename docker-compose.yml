@@ -1,18 +1,31 @@
-version: '3.8'
-
 services:
+  light-chat-redis:
+    image: redis:7-alpine
+    container_name: light-chat-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - light-chat-network
+
   litechat-db:
     image: postgres:16-alpine
     container_name: litechat_postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: )LK-7cV)>wxs*%a
+      POSTGRES_PASSWORD: ")LK-7cV)>wxs*%a"
       POSTGRES_DB: litechat_db
     ports:
       - "5432:5432"
     volumes:
       - litechat-data:/var/lib/postgresql/data
+    networks:
+      - light-chat-network
+
+networks:
+  light-chat-network:
+    driver: bridge
 
 volumes:
   litechat-data:
