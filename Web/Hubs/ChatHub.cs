@@ -1,5 +1,6 @@
 ﻿using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
+using LightChat.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
@@ -13,11 +14,38 @@ namespace LightChat.Web.Hubs
         private readonly IChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
 
-        public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository, IUserRepository userRepository)
+        private readonly IUserStatusManager _statusManager;
+
+        public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository, IUserRepository userRepository, IUserStatusManager statusManager)
         {
             _messageRepository = messageRepository;
             _chatRepository = chatRepository;
             _userRepository = userRepository;
+
+            _statusManager = statusManager;
+        }
+
+        public override async Task OnConnectedAsync()
+        {
+            var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(userIdString, out var userId))
+            {
+                _statusManager.SetOnline(userId, Context.ConnectionId);
+
+                await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = true });
+            }
+
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            _statusManager.RemoveConnection(Context.ConnectionId, out var userId, out var isFullyOffline);
+
+            if (isFullyOffline && userId.HasValue)
+                await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = false });
+
+            await base.OnDisconnectedAsync(exception);
         }
 
         /// <summary>
