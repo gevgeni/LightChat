@@ -1,18 +1,5 @@
-using System.Text;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-
-using Serilog;
 using FluentValidation;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-
-using LightChat.Web.Hubs;
-using LightChat.Web.Models;
 using LightChat.Core.Entities;
-using LightChat.Web.Middlwares;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
@@ -350,7 +337,7 @@ try
     .RequireAuthorization();
 
     //endpoint - получение участников чата
-    app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, HttpContext context) =>
+    app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, IUserStatusManager statusManager, HttpContext context) =>
     {
         var membersAsUsers = await chatRepository.GetMembersAsync(chatId);
 
@@ -358,7 +345,8 @@ try
         {
             id = u.Id,
             username = u.Username,
-            email = u.Email
+            email = u.Email,
+            isOnline = statusManager.IsUserOnline(u.Id)
         });
 
         return Results.Ok(results);
@@ -387,7 +375,7 @@ try
         if (isAlreadyMember)
             return Results.Conflict("Пользователь уже состоит в этом чате.");
 
-        var member = new LightChat.Core.Entities.ChatMember
+        var member = new ChatMember
         {
             ChatId = chatId,
             UserId = dto.UserId,
@@ -400,7 +388,7 @@ try
     .RequireAuthorization();
 
     //endpoint - получение всех пользователей
-    app.MapGet("/users", async (IUserRepository userRepository, ClaimsPrincipal user) =>
+    app.MapGet("/users", async (IUserRepository userRepository, IUserStatusManager statusManager, ClaimsPrincipal user) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var currentUserId))
@@ -413,7 +401,8 @@ try
             .Select(u => new
             {
                 id = u.Id,
-                username = u.Username
+                username = u.Username,
+                isOnline = statusManager.IsUserOnline(u.Id)
             });
 
         return Results.Ok(result);
