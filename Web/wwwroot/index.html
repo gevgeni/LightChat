@@ -884,11 +884,11 @@
                 const gain = ctx.createGain();
 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Нота Ре (D5)
-                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1); // Плавный взлет до Ля (A5)
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
 
-                gain.gain.setValueAtTime(0.15, ctx.currentTime); // Умеренная громкость
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15); // Затухание
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
 
                 osc.connect(gain);
                 gain.connect(ctx.destination);

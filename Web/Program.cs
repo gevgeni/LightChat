@@ -1,21 +1,24 @@
+using System.Text;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+
+using Serilog;
 using FluentValidation;
+using StackExchange.Redis;
+
+using LightChat.Web.Hubs;
+using LightChat.Web.Models;
+using LightChat.Web.Services;
 using LightChat.Core.Entities;
+using LightChat.Web.Middlwares;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-using LightChat.Web.Hubs;
-using LightChat.Web.Middlwares;
-using LightChat.Web.Models;
-using LightChat.Web.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.IdentityModel.Tokens;
-using Serilog;
-using StackExchange.Redis;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
