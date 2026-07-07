@@ -444,7 +444,25 @@
                             }
                         }
                     }
-                })
+                });
+
+                let hideTypingIndicatorTimer;
+                connection.on("UserIsTyping", (data) => {
+                    if (data.chatId !== activeChatId) return;
+
+                    const indicator = document.getElementById("typingIndicator");
+
+                    const memberElement = document.querySelector(`#chatMembersContainer [data-member-id="${data.userId}"] span`);
+                    const username = memberElement ? memberElement.innerHTML.replace(" (Вы)", "") : "Собеседник";
+
+                    indicator.innerText = `${username} печатает...`;
+                    indicator.style.display = "block";
+
+                    clearTimeout(hideTypingIndicatorTimer);
+                    hideTypingIndicatorTimer = setTimeout(() => {
+                        indicator.style.display = "none";
+                    }, 2000);
+                });
 
                 await connection.start();
 
@@ -913,6 +931,20 @@
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }
         }
+
+        let lastTypingTime = 0;
+        const TYPING_NOTIFY_INTERVAL = 1500;
+
+        document.getElementById("messageTextInput").addEventListener("input", () => {
+            if (!activeChatId || !connection || connection.state !== signalR.HubConnectionState.Connected) return;
+
+            const now = Date.now();
+
+            if (now - lastTypingTime > TYPING_NOTIFY_INTERVAL) {
+                connection.invoke("NotifyTyping", activeChatId).catch(err => console.error("Ошибка NotifyTyping:", err));
+                lastTypingTime = now;
+            }
+        })
     </script>
 </body>
 </html>
