@@ -215,9 +215,17 @@
         .member-status {
             width: 8px;
             height: 8px;
-            background: #2ec4b6; /* Зеленый кружок */
             border-radius: 50%;
+            flex-shrink: 0;
         }
+
+            .member-status.online {
+                background: #2ec4b6;
+            }
+
+            .member-status.offline {
+                background: #95a5a6;
+            }
     </style>
 </head>
 <body>
@@ -481,11 +489,12 @@
                 members.forEach(member => {
                     const item = document.createElement("div");
                     item.classList.add("member-item");
+                    item.setAttribute("data-member-id", member.id);
 
                     const isMe = member.id === currentUserId ? " (Вы)" : "";
+                    const statusClass = (member.id === currentUserId || member.isOnline) ? "online" : "offline";
 
-                    item.innerHTML = `<div class="member-status"></div><span>${member.username}${isMe}</span>`;
-                    item.dataset.isDirect = chat.isDirect;
+                    item.innerHTML = `<div class="member-status ${statusClass}"></div><span>${member.username}${isMe}</span>`;
                     container.appendChild(item);
                 });
             } catch (err) {
@@ -735,6 +744,15 @@
 
                     row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#2ec4b6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Пригласить</button>`;
 
+                    const statusClass = user.isOnline ? "online" : "offline";
+                    row.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="member-status ${statusClass}"></div>
+                            <span style="font-weight: 500;">${user.username}</span>
+                        </div>
+                        <button style="background:#2ec4b6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Пригласить</button>
+                    `;
+
                     row.onclick = () => submitAddMember(user.id);
                     container.appendChild(row);
                 });
@@ -803,6 +821,15 @@
                     row.onmouseout = () => row.style.background = "#f7f9fa";
 
                     row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#007fff; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Написать</button>`;
+
+                    const statusClass = user.isOnline ? "online" : "offline";
+                    row.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="member-status ${statusClass}"></div>
+                            <span style="font-weight: 500;">${user.username}</span>
+                        </div>
+                        <button style="background:#007fff; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Написать</button>
+                    `;
 
                     row.onclick = () => submitStartDirectChat(user.id, user.username);
                     container.appendChild(row);
