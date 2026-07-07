@@ -418,6 +418,24 @@
                     }
                 });
 
+                connection.on("UserStatusChanged", (data) => {
+                    console.log(`Статус пользователя ${data.userId} изменился: ${data.isOnline}`);
+
+                    const memberRow = document.querySelector(`#chatMembersContainer [data-member-id="${data.userId}"]`);
+                    if (memberRow) {
+                        const statusIndicator = memberRow.querySelector('.member-status');
+                        if (statusIndicator) {
+                            if (data.isOnline) {
+                                statusIndicator.classList.remove('offline');
+                                statusIndicator.classList.add('online');
+                            } else {
+                                statusIndicator.classList.remove('online');
+                                statusIndicator.classList.add('offline');
+                            }
+                        }
+                    }
+                })
+
                 await connection.start();
 
                 document.getElementById("authSection").style.display = "none";
