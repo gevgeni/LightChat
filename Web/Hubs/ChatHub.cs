@@ -47,6 +47,16 @@ namespace LightChat.Web.Hubs
 
             await base.OnDisconnectedAsync(exception);
         }
+        /// <summary>
+        /// Уведомление о том, что пользователь печатает
+        /// </summary>
+        public async Task NotifyTyping(Guid chatId)
+        {
+            var userId = GetUserId();
+
+            await Clients.GroupExcept(chatId.ToString(), Context.ConnectionId)
+                .SendAsync("UserIsTyping", new { userId, chatId });
+        }
 
         /// <summary>
         /// Отправка сообщения в конкретный чат
