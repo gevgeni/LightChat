@@ -429,6 +429,13 @@ try
 
     app.MapHub<ChatHub>("/chatHub");
 
+    using (var scope = app.Services.CreateScope())
+    {
+        var statusManager = scope.ServiceProvider.GetRequiredService<IUserStatusManager>();
+        statusManager.ClearAllStatuses();
+        Log.Information("Статусы пользователей в Redis успешно очищены при запуске.");
+    }
+
     app.Run();
 }
 catch (Exception ex)
