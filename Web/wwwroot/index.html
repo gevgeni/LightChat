@@ -269,6 +269,7 @@
                         <div style="display: flex; flex: 1; overflow: hidden;">
                             <div style="display: flex; flex-direction: column; flex: 1; height: 100%;">
                                 <div class="messages-list" id="messagesList"></div>
+                                <div id="typingIndicator" style="display: none; padding: 0 25px 10px 25px; font-size: 13px; color: #888; font-style: italic; background: #f7f9fa;"></div>
                                 <div class="input-area">
                                     <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()" />
                                     <button onclick="sendMessage()">Отправить</button>
@@ -647,7 +648,6 @@
                 list.insertBefore(msgDiv, list.firstChild);
             } else {
                 list.appendChild(msgDiv);
-                list.scrollTop = list.scrollHeight;
             }
         }
 
@@ -903,11 +903,11 @@
             }
         }
 
-        function scrollToBottom(force = false) {
-            const chatContainer = document.getElementById('chatMessagesContainer');
+        function scrollToBottom(message, prepend = false) {
+            const chatContainer = document.getElementById('messagesList');
             if (!chatContainer) return;
 
-            const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 50;
+            const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight <= 50;
 
             if (force || isAtBottom) {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
