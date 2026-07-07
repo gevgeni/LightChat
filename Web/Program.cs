@@ -16,6 +16,19 @@ using LightChat.Web.Middlwares;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
+using LightChat.Web.Hubs;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Models;
+using LightChat.Web.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using StackExchange.Redis;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -40,6 +53,11 @@ try
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    #region Настройка Redis
+    var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
+    builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
+    #endregion
+
     #region Настройка PostgreSQL
     var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -51,6 +69,8 @@ try
     builder.Services.AddScoped<IChatRepository, EfChatRepository>();
     builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
     #endregion
+
+    builder.Services.AddSingleton<IUserStatusManager, UserStatusManager>();
 
     #region JWT авторизация
     var jwtSettings = builder.Configuration.GetSection("JwtSettings");
