@@ -1,22 +1,25 @@
-using System.Text;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-
-using LightChat.Web.Hubs;
-using LightChat.Web.Models;
+using FluentValidation;
+using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-using LightChat.Core.Entities;
+using LightChat.Web.Hubs;
 using LightChat.Web.Middlwares;
+using LightChat.Web.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR(options => options.EnableDetailedErrors = true);
+
+builder.Services.AddOpenApi();
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddExceptionHandler<CustomExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -32,8 +35,6 @@ builder.Services.AddScoped<IUserRepository, EfUserRepository>();
 builder.Services.AddScoped<IChatRepository, EfChatRepository>();
 builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
 #endregion
-
-builder.Services.AddOpenApi();
 
 #region JWT авторизация
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -105,13 +106,11 @@ if (app.Environment.IsDevelopment())
 
 #region Minimal API Эндпоинты
 //endpoint - регистрация пользователя
-app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
+app.MapPost("/api/users", async (CreateUserDto dto, IValidator<CreateUserDto> validator, IUserRepository userRepo) =>
 {
-    if (string.IsNullOrWhiteSpace(dto.Username))
-        return Results.BadRequest("Имя пользователя не может быть пустым.");
-
-    if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
-        return Results.BadRequest("Пароль должен быть не менее 6 символов.");
+    var validationResult = await validator.ValidateAsync(dto);
+    if (!validationResult.IsValid)
+        return Results.ValidationProblem(validationResult.ToDictionary());
 
     var existingUser = await userRepo.GetByUsernameAsync(dto.Username);
     if (existingUser != null)
@@ -131,10 +130,11 @@ app.MapPost("/api/users", async (CreateUserDto dto, IUserRepository userRepo) =>
 });
 
 //endpoint - авторизация пользователя с Json Web Token
-app.MapPost("/auth/login", async (LoginRequest request, ApplicationDbContext dbContext, IConfiguration configuration) =>
+app.MapPost("/auth/login", async (LoginRequest request, IValidator<LoginRequest> validator, ApplicationDbContext dbContext, IConfiguration configuration) =>
 {
-    if (string.IsNullOrWhiteSpace(request.Username))
-        return Results.BadRequest("Имя пользователя не может быть пустым.");
+    var validationResult = await validator.ValidateAsync(request);
+    if (!validationResult.IsValid)
+        return Results.ValidationProblem(validationResult.ToDictionary());
 
     var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 
@@ -246,14 +246,15 @@ app.MapGet("/chats", async (
 .RequireAuthorization();
 
 //endpoint - создание групового чата
-app.MapPost("/chats", async (CreateChatDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
+app.MapPost("/chats", async (CreateChatDto dto, IValidator<CreateChatDto> validator, IChatRepository chatRepository, ClaimsPrincipal user) =>
 {
     var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
         return Results.Unauthorized();
 
-    if (string.IsNullOrWhiteSpace(dto.Name))
-        return Results.BadRequest("Название чата не может быть пустым.");
+    var validationResult = await validator.ValidateAsync(dto);
+    if (!validationResult.IsValid)
+        return Results.ValidationProblem(validationResult.ToDictionary());
 
     var chat = new Chat
     {
