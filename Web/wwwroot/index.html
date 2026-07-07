@@ -409,6 +409,7 @@
                 connection.on("ReceiveMessage", (message) => {
                     if (message.chatId === activeChatId) {
                         appendSingleMessage(message, false);
+                        scrollToBottom(false);
                     } else {
                         console.log(`Пришло сообщение в фоновый чат: ${message.chatId}`);
 
@@ -658,6 +659,8 @@
             try {
                 await connection.invoke("SendMessage", activeChatId, text);
                 textInput.value = "";
+
+                scrollToBottom(true);
             } catch (err) {
                 console.error("Ошибка отправки:", err);
                 alert("Ошибка при отправке: " + err.message);
@@ -897,6 +900,17 @@
                 osc.stop(ctx.currentTime + 0.15);
             } catch (e) {
                 console.warn("[Audio] Не удалось синтезировать звук уведомления:", e);
+            }
+        }
+
+        function scrollToBottom(force = false) {
+            const chatContainer = document.getElementById('chatMessagesContainer');
+            if (!chatContainer) return;
+
+            const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 50;
+
+            if (force || isAtBottom) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
             }
         }
     </script>
