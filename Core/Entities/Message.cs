@@ -12,5 +12,6 @@
 
         public string Text { get; set; } = null!;
         public DateTime SentAt { get; set; } = DateTime.UtcNow;
+        public bool IsRead { get; set; } = false;
     }
 }
