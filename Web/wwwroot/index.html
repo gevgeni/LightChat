@@ -241,7 +241,8 @@
 <body>
     <div class="app-container">
         <div id="authSection">
-            <div class="auth-box">
+
+            <div class="auth-box" id="loginBox">
                 <h2 style="text-align: center; margin-bottom: 20px;">Войти в LightChat</h2>
                 <div style="margin-bottom: 15px;">
                     <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;" />
@@ -251,6 +252,28 @@
                 </div>
                 <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
             </div>
+        </div>
+
+            <div class="auth-box" id="registerBox" style="display: none;">
+                <h2 style="text-align: center; margin-bottom: 20px;">Регистрация в LightChat</h2>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="regUsernameInput" placeholder="Придумайте Username" style="width: 100%; box-sizing: border-box;" />
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <input type="email" id="regEmailInput" placeholder="Введите ваш Email" style="width: 100%; box-sizing: border-box;" />
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <input type="password" id="regPasswordInput" placeholder="Придумайте Пароль" style="width: 100%; box-sizing: border-box;" />
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <input type="password" id="regPasswordConfirmInput" placeholder="Повторите Пароль" style="width: 100%; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') registerAccount()" />
+                </div>
+                <button style="width: 100%; background: #2ec4b6; margin-bottom: 15px;" onclick="registerAccount()">Зарегистрироваться</button>
+                <div style="text-align: center;">
+                    <a href="#" onclick="toggleAuthMode(false); return false;" style="color: #2ec4b6; text-decoration: none; font-size: 14px; font-weight: bold;">Уже есть аккаунт? Войти</a>
+                </div>
+            </div>
+
         </div>
 
         <div id="mainInterface">
@@ -1025,6 +1048,70 @@
             }
         }
 
+        function toggleAuthMode(isRegister) {
+            document.getElementById("loginBox").style.display = isRegister ? "none" : "block";
+            document.getElementById("registerBox").style.display = isRegister ? "block" : "none";
+
+            if (isRegister) {
+                document.getElementById("regUsernameInput").value = "";
+                document.getElementById("regPasswordInput").value = "";
+                document.getElementById("regPasswordConfirmInput").value = "";
+            } else {
+                document.getElementById("usernameInput").value = "";
+                document.getElementById("passwordInput").value = "";
+            }
+        }
+
+        async function registerAccount() {
+            const username = document.getElementById("regUsernameInput").value.trim();
+            const email = document.getElementById("regEmailInput").value.trim();
+            const password = document.getElementById("regPasswordInput").value;
+            const passwordConfirm = document.getElementById("regPasswordConfirmInput").value;
+
+            if (!username || !password || !passwordConfirm || !email) {
+                alert("Пожалуйста, заполните все поля формы регистрации");
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                alert("Введенные пароли не совпадают!");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, email: email, password: password })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = "Не удалось зарегистрироваться.";
+
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        if (errorData.errors) {
+                            errorMessage = Object.values(errorData.errors).flat().join("\n");
+                        } else if (errorData.title) {
+                            errorMessage = errorData.title;
+                        }
+                    } catch (e) {
+                        if (errorText) errorMessage = errorText;
+        }
+
+                alert("Регистрация прошла успешно! Теперь вы можете войти в свой аккаунт.");
+                document.getElementById("usernameInput").value = username;
+
+                toggleAuthMode(false);
+
+                document.getElementById("passwordInput").focus();
+            } catch (err) {
+                console.error("Ошибка при регистрации:", err);
+                alert("Ошибка: " + err.message);
+            }
+            }
+
         let lastTypingTime = 0;
         const TYPING_NOTIFY_INTERVAL = 1500;
 
@@ -1037,7 +1124,7 @@
                 connection.invoke("NotifyTyping", activeChatId).catch(err => console.error("Ошибка NotifyTyping:", err));
                 lastTypingTime = now;
             }
-        })
+        });
     </script>
 </body>
 </html>
