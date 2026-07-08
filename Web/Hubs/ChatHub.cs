@@ -92,7 +92,8 @@ namespace LightChat.Web.Hubs
                 senderId = message.SenderId,
                 senderUsername = username,
                 text = message.Text,
-                sentAt = message.SentAt
+                sentAt = message.SentAt,
+                isRead = false
             });
         }
 
@@ -126,6 +127,22 @@ namespace LightChat.Web.Hubs
 
             if (Context.Items["AuthorizedChats"] is HashSet<Guid> authorizedChats)
                 authorizedChats.Remove(chatId);
+        }
+
+        /// <summary>
+        /// Помечает все сообщения в чате как прочитанные
+        /// </summary>
+        public async Task MarkChatAsRead(Guid chatId)
+        {
+            var userId = GetUserId();
+
+            await _messageRepository.MarkUnreadAsReadAsync(chatId, userId);
+
+            await Clients.Group(chatId.ToString()).SendAsync("MessagesMarkedAsRead", new
+            {
+                chatId,
+                readerId = userId
+            });
         }
 
         private Guid GetUserId()
