@@ -633,6 +633,7 @@
 
             const currentChatItem = document.getElementById(`chat-item-${activeChatId}`);
             const isDirect = currentChatItem ? currentChatItem.dataset.isDirect === 'true' : false;
+            isActiveChatDirect = isDirect;
 
             const addMemberBtn = document.querySelector(".members-header button");
             if (addMemberBtn) addMemberBtn.style.display = isDirect ? "none" : "flex";
@@ -737,6 +738,7 @@
 
             const username = message.senderUsername || (message.sender ? message.sender.username : null);
             const nameToShow = username || `Пользователь [${message.senderId.substring(0, 5)}]`;
+            const nameSpan = isActiveChatDirect ? '' : `<span class="msg-sender">${nameToShow}</span>`;
 
             const isMyMessage = String(message.senderId).toLowerCase() === String(currentUserId).toLowerCase();
 
@@ -747,10 +749,10 @@
                 const statusHtml = `<span class="msg-status" style="margin-right: 5px; color: #e6f2ff; font-weight: bold;">${checkmarks}</span>`;
 
                 msgDiv.classList.add("outgoing");
-                msgDiv.innerHTML = `<span class="msg-sender">Я</span>${message.text}<span class="msg-sentAt">${statusHtml}${formatter.format(Date.parse(message.sentAt))}</span>`;
+                msgDiv.innerHTML = `${message.text}<span class="msg-sentAt">${statusHtml}${formatter.format(Date.parse(message.sentAt))}</span>`;
             } else {
                 msgDiv.classList.add("incoming");
-                msgDiv.innerHTML = `<span class="msg-sender">${nameToShow}</span>${message.text}<span class="msg-sentAt">${formatter.format(Date.parse(message.sentAt))}</span>`;
+                msgDiv.innerHTML = `${nameSpan}${message.text}<span class="msg-sentAt">${formatter.format(Date.parse(message.sentAt))}</span>`;
             }
 
             if (prepend) {
