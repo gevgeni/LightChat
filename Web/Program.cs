@@ -230,7 +230,8 @@ try
             senderId = m.SenderId,
             senderUsername = usernamesDict.TryGetValue(m.SenderId, out var name) ? name : "Неизвестный",
             text = m.Text,
-            sentAt = m.SentAt
+            sentAt = m.SentAt,
+            isRead = m.IsRead
         });
 
         return Results.Ok(result);
