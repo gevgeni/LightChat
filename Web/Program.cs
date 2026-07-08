@@ -1,24 +1,22 @@
-using System.Text;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-
-using Serilog;
 using FluentValidation;
-using StackExchange.Redis;
-
-using LightChat.Web.Hubs;
-using LightChat.Web.Models;
-using LightChat.Web.Services;
 using LightChat.Core.Entities;
-using LightChat.Web.Middlwares;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using LightChat.Web.Hubs;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Models;
+using LightChat.Web.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using StackExchange.Redis;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -358,7 +356,12 @@ try
     .RequireAuthorization();
 
     //endpoint - добавление участников в чат
-    app.MapPost("/chats/{chatId:guid}/members", async (Guid chatId, AddMemberDto dto, IChatRepository chatRepository, ClaimsPrincipal user) =>
+    app.MapPost("/chats/{chatId:guid}/members", async (
+        Guid chatId,
+        AddMemberDto dto,
+        IChatRepository chatRepository,
+        ClaimsPrincipal user,
+        Microsoft.AspNetCore.SignalR.IHubContext<ChatHub> hubContext) =>
     {
         var chat = await chatRepository.GetByIdAsync(chatId);
         if (chat == null)
@@ -387,6 +390,14 @@ try
         };
 
         await chatRepository.AddMemberAsync(member);
+
+        await hubContext.Clients.User(dto.UserId.ToString()).SendAsync("ChatInvitation", new
+        {
+            id = chat.Id,
+            name = chat.Name,
+            isDirect = chat.IsDirect
+        });
+
         return Results.Ok("Пользователь успешно добавлен в чат.");
     })
     .RequireAuthorization();
