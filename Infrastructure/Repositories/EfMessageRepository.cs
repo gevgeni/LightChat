@@ -35,6 +35,13 @@ namespace LightChat.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task MarkUnreadAsReadAsync(Guid chatId, Guid readerId)
+        {
+            await _context.Messages
+                .Where(m => m.ChatId == chatId && m.SenderId != readerId && !m.IsRead)
+                .ExecuteUpdateAsync(s => s.SetProperty(m => m.IsRead, true));
+        }
+
         public async Task SaveAsync(Message message)
         {
             await _context.Messages.AddAsync(message);
