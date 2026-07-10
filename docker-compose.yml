@@ -1,4 +1,24 @@
 services:
+  light-chat-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: light-chat-web
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__PostgresConnection=Host=litechat-db;Port=5432;Database=litechat_db;Username=postgres;Password=)LK-7cV)>wxs*%a
+      - ConnectionStrings__RedisConnection=light-chat-redis:6379
+    depends_on:
+      light-chat-redis:
+        condition: service_healthy
+      litechat-db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - light-chat-network
+
   light-chat-redis:
     image: redis:7-alpine
     container_name: light-chat-redis
@@ -7,6 +27,11 @@ services:
     restart: always
     networks:
       - light-chat-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   litechat-db:
     image: postgres:16-alpine
@@ -22,6 +47,11 @@ services:
       - litechat-data:/var/lib/postgresql/data
     networks:
       - light-chat-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d litechat_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 networks:
   light-chat-network:
