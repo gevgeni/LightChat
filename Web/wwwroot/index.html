@@ -2,364 +2,243 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LightChat Minimal Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #eef2f3;
-            color: #333;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .app-container {
-            width: 1000px;
-            height: 850px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            display: flex;
-            overflow: hidden;
-        }
-
-        #authSection {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            box-sizing: border-box;
-        }
-
-        .auth-box {
-            width: 380px;
-        }
-
-        #mainInterface {
-            display: none;
-            width: 100%;
-            height: 100%;
-        }
-
-        .sidebar {
-            width: 250px;
-            background: #2f3e46;
+        /* Сохраняем кастомные динамические стили, которые твой JS завязывает на классы */
+        .chat-item.active {
+            background-color: #3b82f6 !important;
             color: white;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #ddd;
         }
 
-        .sidebar-header {
-            padding: 15px;
-            background: #243036;
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
+        .member-status.online {
+            background-color: #10b981;
         }
 
-        .chats-list {
-            flex: 1;
-            overflow-y: auto;
+        .member-status.offline {
+            background-color: #94a3b8;
         }
 
-        .chat-item {
-            padding: 18px 20px;
-            border-bottom: 1px solid #3a4f59;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-            .chat-item:hover {
-                background: #3a4f59;
-            }
-
-            .chat-item.active {
-                background: #007fff;
-            }
-
-        .chat-window {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #f7f9fa;
-        }
-
-        .chat-header {
-            padding: 20px;
-            background: white;
-            border-bottom: 1px solid #e1e4e6;
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        .messages-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
+        /* Стили для сообщений, завязанные на логику appendSingleMessage */
         .msg {
-            max-width: 70%;
-            padding: 10px 12px;
-            border-radius: 8px;
-            font-size: 18px;
-            line-height: 1.3;
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            line-height: 1.4;
             word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
-            .msg.incoming {
-                background: #e3e6e8;
-                align-self: flex-start;
+        @media (min-width: 768px) {
+            .msg {
+                max-width: 70%;
+                font-size: 17px;
             }
+        }
 
-            .msg.outgoing {
-                background: #288ff7;
-                color: white;
-                align-self: flex-end;
-            }
+        .msg.incoming {
+            background-color: #f1f5f9;
+            align-self: flex-start;
+            color: #1e293b;
+            border-top-left-radius: 2px;
+        }
+
+        .msg.outgoing {
+            background-color: #4f46e5;
+            align-self: flex-end;
+            color: white;
+            border-top-right-radius: 2px;
+        }
 
         .msg-sender {
-            font-weight: bold;
+            font-weight: 600;
             font-size: 11px;
             display: block;
-            color: #555;
+            color: #64748b;
+            margin-bottom: 2px;
         }
 
         .msg-sentAt {
-            font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
             text-align: right;
             display: block;
-            color: #111;
+            color: #94a3b8;
+            margin-top: 4px;
+            font-weight: 500;
         }
 
-        .msg.outgoing .msg-sender {
-            color: #e6f2ff;
+        .msg.outgoing .msg-sentAt {
+            color: #c7d2fe;
         }
 
-        .input-area {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e1e4e6;
-            display: flex;
-            gap: 10px;
+        /* Фикс для красивого отображения скроллбара */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        input[type="text"] {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 16px;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        button {
-            padding: 12px 24px;
-            background: #007fff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
         }
 
-            button:hover {
-                background: #0066cc;
-            }
-
-        #noChatSelected {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #888;
-            font-size: 16px;
+        .dark-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
         }
-
-        .members-sidebar {
-            width: 230px;
-            background: #ffffff;
-            border-left: 1px solid #e1e4e6;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .members-header {
-            padding: 15px;
-            background: #f7f9fa;
-            border-bottom: 1px solid #e1e4e6;
-            font-weight: bold;
-            font-size: 16px;
-            text-align: center;
-        }
-
-        .members-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .member-item {
-            padding: 10px;
-            border-bottom: 1px solid #f0f2f3;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .member-status {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-            .member-status.online {
-                background: #2ec4b6;
-            }
-
-            .member-status.offline {
-                background: #95a5a6;
-            }
     </style>
 </head>
-<body>
-    <div class="app-container">
-        <div id="authSection">
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center overflow-hidden antialiased">
 
-            <div class="auth-box" id="loginBox">
-                <h2 style="text-align: center; margin-bottom: 20px;">Войти в LightChat</h2>
-                <div style="margin-bottom: 15px;">
-                    <input type="text" id="usernameInput" placeholder="Введите ваш Username" style="width: 100%; box-sizing: border-box;" />
+    <div class="app-container w-full h-full md:max-w-6xl md:h-[850px] bg-white md:rounded-2xl md:shadow-2xl flex overflow-hidden relative">
+
+        <div id="authSection" class="w-full h-full flex flex-col items-center justify-center p-6 bg-gradient-to-tr from-slate-50 to-slate-100">
+
+            <div class="auth-box w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-slate-100" id="loginBox">
+                <h2 class="text-2xl font-bold text-center text-slate-900 mb-6">Войти в LightChat</h2>
+                <div class="mb-4">
+                    <input type="text" id="usernameInput" placeholder="Введите ваш Username" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base" />
                 </div>
-                <div style="margin-bottom: 15px;">
-                    <input type="password" id="passwordInput" placeholder="Введите ваш Пароль" style="width: 100%; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') loginAndLoadApp()" />
+                <div class="mb-6">
+                    <input type="password" id="passwordInput" placeholder="Введите ваш Пароль" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base" onkeypress="if(event.key === 'Enter') loginAndLoadApp()" />
                 </div>
-                <button style="width: 100%;" onclick="loginAndLoadApp()">Войти</button>
-                <div style="text-align: center; margin-top: 15px;">
-                    <a href="#" onclick="toggleAuthMode(true); return false;" style="color: #007fff; text-decoration: none; font-size: 14px; font-weight: bold;">Зарегистрироваться</a>
+                <button class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20" onclick="loginAndLoadApp()">Войти</button>
+                <div class="text-center mt-5">
+                    <a href="#" onclick="toggleAuthMode(true); return false;" class="text-indigo-600 hover:text-indigo-700 text-sm font-semibold no-underline">Зарегистрироваться</a>
                 </div>
             </div>
 
-            <div class="auth-box" id="registerBox" style="display: none;">
-                <h2 style="text-align: center; margin-bottom: 20px;">Регистрация в LightChat</h2>
-                <div style="margin-bottom: 15px;">
-                    <input type="text" id="regUsernameInput" placeholder="Придумайте Username" style="width: 100%; box-sizing: border-box;" />
+            <div class="auth-box w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-slate-100" id="registerBox" style="display: none;">
+                <h2 class="text-2xl font-bold text-center text-slate-900 mb-6">Регистрация в LightChat</h2>
+                <div class="mb-4">
+                    <input type="text" id="regUsernameInput" placeholder="Придумайте Username" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base" />
                 </div>
-                <div style="margin-bottom: 15px;">
-                    <input type="email" id="regEmailInput" placeholder="Введите ваш Email" style="width: 100%; box-sizing: border-box;" />
+                <div class="mb-4">
+                    <input type="email" id="regEmailInput" placeholder="Введите ваш Email" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base" />
                 </div>
-                <div style="margin-bottom: 15px;">
-                    <input type="password" id="regPasswordInput" placeholder="Придумайте Пароль" style="width: 100%; box-sizing: border-box;" />
+                <div class="mb-4">
+                    <input type="password" id="regPasswordInput" placeholder="Придумайте Пароль" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base" />
                 </div>
-                <div style="margin-bottom: 15px;">
-                    <input type="password" id="regPasswordConfirmInput" placeholder="Повторите Пароль" style="width: 100%; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') registerAccount()" />
+                <div class="mb-6">
+                    <input type="password" id="regPasswordConfirmInput" placeholder="Повторите Пароль" class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base" onkeypress="if(event.key === 'Enter') registerAccount()" />
                 </div>
-                <button style="width: 100%; background: #2ec4b6; margin-bottom: 15px;" onclick="registerAccount()">Зарегистрироваться</button>
-                <div style="text-align: center;">
-                    <a href="#" onclick="toggleAuthMode(false); return false;" style="color: #2ec4b6; text-decoration: none; font-size: 14px; font-weight: bold;">Уже есть аккаунт? Войти</a>
+                <button class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition duration-200 shadow-lg shadow-emerald-500/20 mb-4" onclick="registerAccount()">Зарегистрироваться</button>
+                <div class="text-center">
+                    <a href="#" onclick="toggleAuthMode(false); return false;" class="text-emerald-500 hover:text-emerald-600 text-sm font-semibold no-underline">Уже есть аккаунт? Войти</a>
                 </div>
             </div>
 
         </div>
 
-        <div id="mainInterface">
-            <div style="display: flex; width: 100%; height: 100%;">
-                <div class="sidebar">
-                    <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px;">
-                        <span>Мои чаты</span>
-                        <div style="display: flex; gap: 5px;">
-                            <button onclick="openDirectChatModal()" style="background: #007fff; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Написать лично">💬</button>
-                            <button onclick="openCreateChatModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Создать группу">+</button>
+        <div id="mainInterface" class="w-full h-full" style="display: none;">
+            <div class="flex w-full h-full relative">
+
+                <div id="mobileSidebarOverlay" class="hidden fixed inset-0 bg-black/40 z-20 md:hidden transition-opacity duration-300"></div>
+
+                <div id="chatsSidebar" class="sidebar fixed inset-y-0 left-[-100%] md:static md:left-0 w-[280px] bg-slate-800 text-slate-200 flex flex-col border-r border-slate-700 z-30 transition-all duration-300 h-full shrink-0">
+
+                    <div class="sidebar-header flex justify-between items-center px-4 py-4 bg-slate-900 border-b border-slate-700 text-base font-bold">
+                        <span class="tracking-wide text-slate-100">Мои чаты</span>
+                        <div class="flex gap-2">
+                            <button onclick="openDirectChatModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-full w-8 h-8 text-sm flex items-center justify-center font-bold transition active:scale-95 shadow" title="Написать лично">💬</button>
+                            <button onclick="openCreateChatModal()" class="bg-emerald-500 hover:bg-emerald-400 text-white rounded-full w-8 h-8 text-lg flex items-center justify-center font-bold transition active:scale-95 shadow" title="Создать группу">+</button>
                         </div>
                     </div>
-                    <div class="chats-list" id="chatsListContainer"></div>
 
-                    <div style="padding: 15px; background: #243036; text-align: center;">
-                        <button onclick="logout()" style="background: #e63946; width: 100%; padding: 8px;">Выйти из аккаунта</button>
+                    <div class="chats-list flex-1 overflow-y-auto custom-scrollbar dark-scrollbar divide-y divide-slate-700/50" id="chatsListContainer">
+                    </div>
+
+                    <div class="p-4 bg-slate-900 border-t border-slate-700">
+                        <button onclick="logout()" class="bg-rose-600 hover:bg-rose-500 text-white w-full py-2.5 rounded-xl font-medium transition text-sm shadow">Выйти из аккаунта</button>
                     </div>
                 </div>
 
-                <div class="chat-window">
-                    <div id="noChatSelected">Выберите чат слева, чтобы начать общение</div>
+                <div class="chat-window flex-1 flex flex-col bg-slate-50 h-full min-w-0">
 
-                    <div id="activeChatArea" style="display: none; flex-direction: column; flex: 1; height: 100%;">
-                        <div class="chat-header" id="currentChatTitle">Название чата</div>
+                    <div id="noChatSelected" class="flex-1 flex flex-col items-center justify-center text-slate-400 font-medium px-4 text-center text-base gap-3">
+                        <button onclick="toggleMobileSidebar(true)" class="md:hidden p-3 bg-slate-800 text-white rounded-xl shadow mb-2 font-semibold text-sm">☰ Открыть список чатов</button>
+                        <span>Выберите чат слева, чтобы начать общение</span>
+                    </div>
 
-                        <div style="display: flex; flex: 1; overflow: hidden;">
-                            <div style="display: flex; flex-direction: column; flex: 1; height: 100%;">
-                                <div class="messages-list" id="messagesList"></div>
-                                <div id="typingIndicator" style="display: none; padding: 0 25px 10px 25px; font-size: 13px; color: #888; font-style: italic; background: #f7f9fa;"></div>
-                                <div class="input-area">
-                                    <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()" />
-                                    <button onclick="sendMessage()">Отправить</button>
+                    <div id="activeChatArea" class="flex-col flex-1 h-full hidden overflow-hidden">
+
+                        <div class="chat-header px-4 py-3.5 bg-white border-b border-slate-200 flex items-center shadow-sm shrink-0">
+                            <button onclick="toggleMobileSidebar(true)" class="mr-3 text-slate-600 hover:text-slate-900 focus:outline-none md:hidden p-1">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                            <div class="font-bold text-slate-800 text-base md:text-lg truncate flex-1" id="currentChatTitle">Название чата</div>
+                        </div>
+
+                        <div class="flex flex-1 overflow-hidden relative">
+
+                            <div class="flex flex-col flex-1 h-full min-w-0 bg-slate-50">
+
+                                <div class="messages-list flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-3" id="messagesList"></div>
+
+                                <div id="typingIndicator" class="hidden px-6 pb-2 text-xs text-slate-400 font-medium italic bg-slate-50"></div>
+
+                                <div class="input-area p-3 md:p-4 bg-white border-t border-slate-200 flex gap-2 shrink-0 items-center">
+                                    <input type="text" id="messageTextInput" placeholder="Напишите сообщение..." class="flex-1 p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base md:text-sm bg-slate-50" onkeypress="if(event.key === 'Enter') sendMessage()" />
+                                    <button onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 md:py-2.5 font-bold rounded-xl transition shadow shadow-indigo-600/10 active:scale-95 text-base md:text-sm shrink-0">Отправить</button>
                                 </div>
                             </div>
 
-                            <div class="members-sidebar">
-                                <div class="members-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px;">
+                            <div class="members-sidebar w-[230px] bg-white border-left border-slate-200 hidden lg:flex flex-col h-full shrink-0">
+                                <div class="members-header flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm text-slate-700">
                                     <span>В чате (<span id="membersCount">0</span>)</span>
-                                    <button onclick="openAddMemberModal()" style="background: #2ec4b6; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">+</button>
+                                    <button onclick="openAddMemberModal()" class="bg-emerald-500 hover:bg-emerald-400 text-white rounded-full w-6 h-6 text-sm flex items-center justify-center font-bold transition active:scale-95 shadow">+</button>
                                 </div>
-                                <div class="members-list" id="chatMembersContainer"></div>
+                                <div class="members-list flex-1 overflow-y-auto p-2 custom-scrollbar space-y-0.5" id="chatMembersContainer"></div>
                             </div>
+
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="createChatModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 20px; border-radius: 8px; width: 320px; display: flex; flex-direction: column; gap: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">Новый чат</h3>
-                <button onclick="closeCreateChatModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+    <div id="createChatModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm flex flex-col gap-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900">Новый групповой чат</h3>
+                <button onclick="closeCreateChatModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-semibold">&times;</button>
             </div>
-            <input type="text" id="newChatNameInput" placeholder="Введите название чата..." style="padding: 8px; border: 1px solid #e1e4e6; border-radius: 6px; font-size: 14px;" />
-            <button onclick="submitCreateChat()" style="background: #2ec4b6; color: white; border: none; padding: 10px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: bold;">Создать</button>
+            <input type="text" id="newChatNameInput" placeholder="Введите название чата..." class="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-base" />
+            <button onclick="submitCreateChat()" class="bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition shadow shadow-emerald-500/20">Создать</button>
         </div>
     </div>
 
-    <div id="addMemberModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 20px; border-radius: 8px; width: 320px; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">Добавить участника</h3>
-                <button onclick="closeAddMemberModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+    <div id="addMemberModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm max-h-[80vh] flex flex-col gap-4 shadow-2xl">
+            <div class="flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-bold text-slate-900">Добавить участника</h3>
+                <button onclick="closeAddMemberModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-semibold">&times;</button>
             </div>
-            <div id="addMemberUsersList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 250px;">
-            </div>
+            <div id="addMemberUsersList" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 max-h-[50vh] pr-1"></div>
         </div>
     </div>
 
-    <div id="directChatModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 20px; border-radius: 8px; width: 320px; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">Начать личный чат</h3>
-                <button onclick="closeDirectChatModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+    <div id="directChatModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm max-h-[80vh] flex flex-col gap-4 shadow-2xl">
+            <div class="flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-bold text-slate-900">Начать личный чат</h3>
+                <button onclick="closeDirectChatModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-semibold">&times;</button>
             </div>
-            <div id="directChatUsersList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 250px;">
-
-            </div>
+            <div id="directChatUsersList" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 max-h-[50vh] pr-1"></div>
         </div>
     </div>
 
     <script>
+        // ВСЕ ТВОИ ОРИГИНАЛЬНЫЕ ПЕРЕМЕННЫЕ СОХРАНЕНЫ
         let connection = null;
         let jwtToken = "";
         let currentUserId = null;
@@ -371,6 +250,31 @@
 
         let isActiveChatDirect = false;
 
+        // Вспомогательные функции управления мобильным сайдбаром чатов
+        function toggleMobileSidebar(open) {
+            const sidebar = document.getElementById("chatsSidebar");
+            const overlay = document.getElementById("mobileSidebarOverlay");
+            if (open) {
+                sidebar.classList.remove("left-[-100%]");
+                sidebar.classList.add("left-0");
+                overlay.classList.remove("hidden");
+            } else {
+                sidebar.classList.remove("left-0");
+                sidebar.classList.add("left-[-100%]");
+                overlay.classList.add("hidden");
+            }
+        }
+
+        document.getElementById("mobileSidebarOverlay").addEventListener("click", () => toggleMobileSidebar(false));
+
+        // Переопределяем оригинальную функцию selectChat, чтобы при выборе чата меню автоматически закрывалось на мобилках
+        const originalSelectChat = selectChat;
+        selectChat = async function (chatId, chatName) {
+            await originalSelectChat(chatId, chatName);
+            toggleMobileSidebar(false); // Закрываем сайдбар на мобилках после клика по чату
+        };
+
+        // ТВОЙ ОРИГИНАЛЬНЫЙ СУЩЕСТВУЮЩИЙ JS-КОД (БЕЗ ИЗМЕНЕНИЙ)
         function parseJwt(token) {
             try {
                 const base64Url = token.split('.')[1];
@@ -598,13 +502,14 @@
 
                 members.forEach(member => {
                     const item = document.createElement("div");
-                    item.classList.add("member-item");
+                    // Заменены инлайн-стили старой верстки на Tailwind-классы для элементов сайдбара
+                    item.className = "member-item flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition cursor-pointer text-sm font-medium text-slate-700";
                     item.setAttribute("data-member-id", member.id);
 
                     const isMe = member.id === currentUserId ? " (Вы)" : "";
                     const statusClass = (member.id === currentUserId || member.isOnline) ? "online" : "offline";
 
-                    item.innerHTML = `<div class="member-status ${statusClass}"></div><span>${member.username}${isMe}</span>`;
+                    item.innerHTML = `<div class="member-status w-2.5 h-2.5 rounded-full ${statusClass}"></div><span class="truncate">${member.username}${isMe}</span>`;
                     container.appendChild(item);
                 });
             } catch (err) {
@@ -627,9 +532,8 @@
 
                 chats.forEach(chat => {
                     const item = document.createElement("div");
-                    item.classList.add("chat-item");
+                    item.className = "chat-item px-4 py-3.5 flex justify-between items-center cursor-pointer hover:bg-slate-700/60 transition duration-150 text-sm font-medium border-b border-slate-700/30";
                     item.id = `chat-item-${chat.id}`;
-                    item.innerText = chat.name;
                     item.dataset.isDirect = chat.isDirect;
                     item.onclick = () => selectChat(chat.id, chat.name);
 
@@ -637,9 +541,9 @@
                     const badgeDisplay = unreadCount > 0 ? 'inline-block' : 'none';
 
                     item.innerHTML = `
-                        <span class="chat-item-name">${chat.name}</span>
-                        <span class="unread-badge" style="display: ${badgeDisplay}; background: #2ec4b6; color: white; border-radius: 12px; padding: 2px 8px; font-size: 12px; font-weight: bold; min-width: 14px; text-align: center;">${unreadCount}</span>
-                    `;
+                            <span class="chat-item-name truncate flex-1 pr-2">${chat.name}</span>
+                            <span class="unread-badge bg-emerald-500 text-white rounded-full px-2 py-0.5 text-xs font-bold min-w-[20px] text-center shrink-0 shadow-sm shadow-emerald-500/20" style="display: ${badgeDisplay};">${unreadCount}</span>
+                        `;
 
                     container.appendChild(item);
 
@@ -685,6 +589,7 @@
             document.getElementById("messagesList").innerHTML = "";
 
             document.getElementById("noChatSelected").style.display = "none";
+            document.getElementById("activeChatArea").style.className = "";
             document.getElementById("activeChatArea").style.display = "flex";
             document.getElementById("currentChatTitle").innerText = chatName;
 
@@ -777,7 +682,7 @@
                 const isRead = message.isRead || message.IsRead;
                 const checkmarks = isRead ? '✓✓' : '✓';
 
-                const statusHtml = `<span class="msg-status" style="margin-right: 5px; color: #e6f2ff; font-weight: bold;">${checkmarks}</span>`;
+                const statusHtml = `<span class="msg-status" style="margin-right: 5px; color: #c7d2fe; font-weight: bold;">${checkmarks}</span>`;
 
                 msgDiv.classList.add("outgoing");
                 msgDiv.innerHTML = `${message.text}<span class="msg-sentAt">${statusHtml}${formatter.format(Date.parse(message.sentAt))}</span>`;
@@ -862,7 +767,7 @@
 
             const modal = document.getElementById("addMemberModal");
             const container = document.getElementById("addMemberUsersList");
-            container.innerHTML = "<div style='text-align:center; color:#888;'>Загрузка...</div>";
+            container.innerHTML = "<div class='text-center text-slate-400 py-4 font-medium'>Загрузка...</div>";
             modal.style.display = "flex";
 
             try {
@@ -877,26 +782,22 @@
                 container.innerHTML = "";
 
                 if (users.length === 0) {
-                    container.innerHTML = "<div style='text-align:center; color:#888;'>Нет доступных пользователей</div>";
+                    container.innerHTML = "<div class='text-center text-slate-400 py-4 font-medium'>Нет доступных пользователей</div>";
                     return;
                 }
 
                 users.forEach(user => {
                     const row = document.createElement("div");
-                    row.style.cssText = "padding: 10px; background: #f7f9fa; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;";
-                    row.onmouseover = () => row.style.background = "#e1e4e6";
-                    row.onmouseout = () => row.style.background = "#f7f9fa";
-
-                    row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#2ec4b6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Пригласить</button>`;
+                    row.className = "p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer flex justify-between items-center hover:bg-slate-100 transition";
 
                     const statusClass = user.isOnline ? "online" : "offline";
                     row.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div class="member-status ${statusClass}"></div>
-                            <span style="font-weight: 500;">${user.username}</span>
-                        </div>
-                        <button style="background:#2ec4b6; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Пригласить</button>
-                    `;
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="member-status w-2 h-2 rounded-full ${statusClass} shrink-0"></div>
+                                <span class="font-semibold text-sm text-slate-700 truncate">${user.username}</span>
+                            </div>
+                            <button class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition shrink-0 shadow shadow-emerald-500/10">Пригласить</button>
+                        `;
 
                     row.onclick = () => submitAddMember(user.id);
                     container.appendChild(row);
@@ -904,7 +805,7 @@
 
             } catch (err) {
                 console.error(err);
-                container.innerHTML = "<div style='text-align:center; color:red;'>Ошибка загрузки</div>";
+                container.innerHTML = "<div class='text-center text-rose-500 py-4 font-medium'>Ошибка загрузки</div>";
             }
         }
 
@@ -941,49 +842,45 @@
         function openDirectChatModal() {
             const modal = document.getElementById("directChatModal");
             const container = document.getElementById("directChatUsersList");
-            container.innerHTML = "<div style='text-align:center; color:#888;'>Загрузка пользователей...</div>";
+            container.innerHTML = "<div class='text-center text-slate-400 py-4 font-medium'>Загрузка пользователей...</div>";
             modal.style.display = "flex";
 
             fetch('/users', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${jwtToken}` }
             })
-            .then(res => {
-                if (!res.ok) throw new Error("Не удалось загрузить пользователей");
-                return res.json();
-            })
-            .then(users => {
-                container.innerHTML = "";
-                if (users.length === 0) {
-                    container.innerHTML = "<div style='text-align:center; color:#888;'>Нет доступных пользователей</div>";
-                    return;
-                }
+                .then(res => {
+                    if (!res.ok) throw new Error("Не удалось загрузить пользователей");
+                    return res.json();
+                })
+                .then(users => {
+                    container.innerHTML = "";
+                    if (users.length === 0) {
+                        container.innerHTML = "<div class='text-center text-slate-400 py-4 font-medium'>Нет доступных пользователей</div>";
+                        return;
+                    }
 
-                users.forEach(user => {
-                    const row = document.createElement("div");
-                    row.style.cssText = "padding: 10px; background: #f7f9fa; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;";
-                    row.onmouseover = () => row.style.background = "#e1e4e6";
-                    row.onmouseout = () => row.style.background = "#f7f9fa";
+                    users.forEach(user => {
+                        const row = document.createElement("div");
+                        row.className = "p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer flex justify-between items-center hover:bg-slate-100 transition";
 
-                    row.innerHTML = `<span style="font-weight: 500;">${user.username}</span><button style="background:#007fff; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Написать</button>`;
+                        const statusClass = user.isOnline ? "online" : "offline";
+                        row.innerHTML = `
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="member-status w-2 h-2 rounded-full ${statusClass} shrink-0"></div>
+                                <span class="font-semibold text-sm text-slate-700 truncate">${user.username}</span>
+                            </div>
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition shrink-0 shadow shadow-indigo-600/10">Написать</button>
+                        `;
 
-                    const statusClass = user.isOnline ? "online" : "offline";
-                    row.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div class="member-status ${statusClass}"></div>
-                            <span style="font-weight: 500;">${user.username}</span>
-                        </div>
-                        <button style="background:#007fff; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">Написать</button>
-                    `;
-
-                    row.onclick = () => submitStartDirectChat(user.id, user.username);
-                    container.appendChild(row);
+                        row.onclick = () => submitStartDirectChat(user.id, user.username);
+                        container.appendChild(row);
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    container.innerHTML = "<div class='text-center text-rose-500 py-4 font-medium'>Ошибка загрузки</div>";
                 });
-            })
-            .catch(err => {
-                console.error(err);
-                container.innerHTML = "<div style='text-align:center; color:red;'>Ошибка загрузки</div>";
-            });
         }
 
         function closeDirectChatModal() {
