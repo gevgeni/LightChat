@@ -32,9 +32,10 @@ namespace LightChat.Infrastructure.Repositories
 
         public async Task<IEnumerable<Chat>> GetUserChatsAsync(Guid userId)
         {
-            return await _context.ChatMembers
-                .Where(cm => cm.UserId == userId)
-                .Select(cm => cm.Chat)
+            return await _context.Chats
+                .Where(c => c.ChatMembers.Any(cm => cm.UserId == userId))
+                .Include(c => c.ChatMembers)
+                    .ThenInclude(cm => cm.User)
                 .ToListAsync();
         }
 
