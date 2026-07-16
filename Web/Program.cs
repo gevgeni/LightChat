@@ -1,22 +1,26 @@
+using System.Security.Claims;
+
+using Serilog;
+using MediatR;
 using FluentValidation;
-using LightChat.Core.Entities;
-using LightChat.Core.Repositories;
-using LightChat.Infrastructure.Persistence;
-using LightChat.Infrastructure.Repositories;
-using LightChat.Web.Hubs;
-using LightChat.Web.Middlwares;
-using LightChat.Web.Models;
-using LightChat.Web.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using StackExchange.Redis;
+
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
-using Microsoft.IdentityModel.Tokens;
-using Serilog;
-using StackExchange.Redis;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+
+using LightChat.Web.Hubs;
+using LightChat.Web.Models;
+using LightChat.Web.Services;
+using LightChat.Web.Extensions;
+using LightChat.Web.Middlwares;
+using LightChat.Core.Interfaces;
+using LightChat.Core.Repositories;
+using LightChat.Core.Features.Users;
+using LightChat.Core.Features.Chats;
+using LightChat.Core.Features.Messages;
+using LightChat.Infrastructure.Security;
+using LightChat.Infrastructure.Persistence;
+using LightChat.Infrastructure.Repositories;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -41,6 +45,9 @@ try
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LightChat.Infrastructure.AssemblyMarker).Assembly));
+    builder.Services.AddValidatorsFromAssembly(typeof(LightChat.Core.AssemblyMarker).Assembly);
+
     #region Настройка Redis
     var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
     builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
@@ -59,43 +66,11 @@ try
     #endregion
 
     builder.Services.AddSingleton<IUserStatusManager, UserStatusManager>();
+    builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+    builder.Services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 
     #region JWT авторизация
-    var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-    var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"] ?? string.Empty);
-
-    builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(secretKey)
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
-                    context.Token = accessToken;
-
-                return Task.CompletedTask;
-            }
-        };
-    });
+    builder.Services.AddWebAuthentication(builder.Configuration);
     #endregion
 
     var app = builder.Build();
@@ -132,67 +107,47 @@ try
 
     #region Minimal API Эндпоинты
     //endpoint - регистрация пользователя
-    app.MapPost("/api/users", async (CreateUserDto dto, IValidator<CreateUserDto> validator, IUserRepository userRepo) =>
+    app.MapPost("/api/users", async (CreateUserRequest dto, ISender mediatr, IValidator<UserRegisterCommand> validator) =>
     {
-        var validationResult = await validator.ValidateAsync(dto);
-        if (!validationResult.IsValid)
-            return Results.ValidationProblem(validationResult.ToDictionary());
-
-        var existingUser = await userRepo.GetByUsernameAsync(dto.Username);
-        if (existingUser != null)
-            return Results.Conflict("Пользователь с таким ником уже существует.");
-
-        var user = new User
+        try
         {
-            Id = Guid.NewGuid(),
-            Username = dto.Username,
-            Email = dto.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            CreatedAt = DateTime.UtcNow
-        };
+            var command = new UserRegisterCommand(
+                dto.Username,
+                dto.Email,
+                dto.Password);
 
-        await userRepo.CreateAsync(user);
-        return Results.Ok(new { user.Id, user.Username });
+            var validationResult = await validator.ValidateAsync(command);
+            if (!validationResult.IsValid)
+                return Results.ValidationProblem(validationResult.ToDictionary());
+
+            var result = await mediatr.Send(command);
+            return Results.Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
     });
 
     //endpoint - авторизация пользователя с Json Web Token
-    app.MapPost("/auth/login", async (LoginRequest request, IValidator<LoginRequest> validator, ApplicationDbContext dbContext, IConfiguration configuration) =>
+    app.MapPost("/auth/login", async (LoginRequest request, IValidator<UserJwtAuthorizeQuery> validator, ISender mediatr) =>
     {
-        var validationResult = await validator.ValidateAsync(request);
-        if (!validationResult.IsValid)
-            return Results.ValidationProblem(validationResult.ToDictionary());
-
-        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            return Results.Unauthorized();
-
-        var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-        var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"] ?? string.Empty);
-
-        var claims = new[]
+        try
         {
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim(ClaimTypes.Name, user.Username)
-    };
+            var command = new UserJwtAuthorizeQuery(request.Username, request.Password);
 
-        var key = new SymmetricSecurityKey(secretKey);
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var validationResult = await validator.ValidateAsync(command);
+            if (!validationResult.IsValid)
+                return Results.ValidationProblem(validationResult.ToDictionary());
 
-        var token = new SecurityTokenDescriptor
+            var result = await mediatr.Send(command);
+
+            return Results.Ok(result);
+        }
+        catch (UnauthorizedAccessException)
         {
-            Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(1),
-            Issuer = jwtSettings["Issuer"],
-            Audience = jwtSettings["Audience"],
-            SigningCredentials = creds
-        };
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var securityToken = tokenHandler.CreateToken(token);
-        var tokenString = tokenHandler.WriteToken(securityToken);
-
-        return Results.Ok(new { Token = tokenString });
+            return Results.Forbid();
+        }
     });
 
     //endpoint - получение истории сообщений
@@ -200,115 +155,62 @@ try
         Guid chatId,
         int limit,
         Guid? beforeMessageId,
-        IChatRepository chatRepository,
-        IMessageRepository messageRepository,
-        IUserRepository userRepository,
-        ClaimsPrincipal user) =>
+        ClaimsPrincipal user, 
+        ISender mediatr) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
             return Results.Unauthorized();
 
-        var isMember = await chatRepository.IsMemberAsync(chatId, userId);
-        if (!isMember)
-            return Results.Forbid();
-
-        var effectiveLimit = limit > 0 ? limit : 50;
-        var messages = await messageRepository.GetChatHistoryAsync(chatId, effectiveLimit, beforeMessageId);
-
-        var senderIds = messages.Select(m => m.SenderId).Distinct().ToList();
-        List<User> explicitUsers = await userRepository.GetAllContainsInIdsAsync(senderIds);
-
-        var usernamesDict = explicitUsers.ToDictionary(u => u.Id, u => u.Username);
-
-        var result = messages.Select(m => new
+        try
         {
-            id = m.Id,
-            chatId = m.ChatId,
-            senderId = m.SenderId,
-            senderUsername = usernamesDict.TryGetValue(m.SenderId, out var name) ? name : "Неизвестный",
-            text = m.Text,
-            sentAt = m.SentAt,
-            isRead = m.IsRead
-        });
+            var command = new GetMessageHistoryQuery(chatId, userId, limit, beforeMessageId);
+            var result = await mediatr.Send(command);
+
+            return Results.Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
+    })
+    .RequireAuthorization();
+
+    //endpoint - получение всех чатов пользователя
+    app.MapGet("/chats", async (ClaimsPrincipal user, ISender mediatr) =>
+    {
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        var query = new GetUserChatsQuery(userId);
+        var result = await mediatr.Send(query);
 
         return Results.Ok(result);
     })
     .RequireAuthorization();
 
-    //endpoint - получение всех чатов пользователя
-    app.MapGet("/chats", async (
-        IChatRepository chatRepo,
-        ClaimsPrincipal user) =>
-    {
-        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
-            return Results.Unauthorized();
-
-        var userChats = await chatRepo.GetUserChatsAsync(userId);
-        var resultList = new List<object>();
-
-        foreach (var c in userChats)
-        {
-            string finalName = c.Name;
-
-            if (c.IsDirect)
-            {
-                var members = await chatRepo.GetMembersAsync(c.Id);
-                var companion = members.FirstOrDefault(m => m.Id != userId);
-                finalName = companion != null ? companion.Username : "Удаленный пользователь";
-            }
-
-            resultList.Add(new
-            {
-                id = c.Id,
-                name = finalName,
-                isDirect = c.IsDirect,
-                createdAt = c.CreatedAt
-            });
-        }
-
-        return Results.Ok(resultList);
-    })
-    .RequireAuthorization();
-
     //endpoint - создание групового чата
-    app.MapPost("/chats", async (CreateChatDto dto, IValidator<CreateChatDto> validator, IChatRepository chatRepository, ClaimsPrincipal user) =>
+    app.MapPost("/chats", async (CreateChatRequest request, IValidator<CreateChatCommand> validator, ClaimsPrincipal principal, ISender mediatr) =>
     {
-        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var nameIdentifier = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
             return Results.Unauthorized();
 
-        var validationResult = await validator.ValidateAsync(dto);
+        var command = new CreateChatCommand(request.Name, userId);
+
+        var validationResult = await validator.ValidateAsync(command);
         if (!validationResult.IsValid)
             return Results.ValidationProblem(validationResult.ToDictionary());
 
-        var chat = new Chat
-        {
-            Id = Guid.NewGuid(),
-            Name = dto.Name,
-            CreatedAt = DateTime.UtcNow
-        };
+        var result = await mediatr.Send(command);
 
-        var member = new ChatMember
-        {
-            ChatId = chat.Id,
-            UserId = userId,
-            JoinedAt = DateTime.UtcNow
-        };
-
-        await chatRepository.CreateGroupChatAsync(chat, member);
-        return Results.Ok(new
-        {
-            id = chat.Id,
-            name = chat.Name,
-            createdAt = chat.CreatedAt
-        });
+        return Results.Created($"/chats/{result.Id}", result);
     })
     .RequireAuthorization();
 
     //endpoint - создание личного чата
-    app.MapPost("/chats/direct", async (CreateDirectChatRequest request, IChatRepository chatRepository, ClaimsPrincipal principal) =>
+    app.MapPost("/chats/direct", async (CreateDirectChatRequest request, ClaimsPrincipal principal, ISender mediatr) =>
     {
         var currentUserIdString = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
                                     ?? principal.FindFirst("sub")?.Value;
@@ -317,108 +219,76 @@ try
         var targetUserId = request.TargetUserId;
         if (targetUserId == currentUserId) return Results.BadRequest("Нельзя создать личный чат с самим собой.");
 
-        var existingChat = await chatRepository.GetDirectChatAsync(currentUserId, targetUserId);
-        if (existingChat != null)
-            return Results.Ok(new { id = existingChat.Id, name = "Личный чат", isDirect = true });
+        var command = new CreateDirectChatCommand(currentUserId, request.TargetUserId);
+        var result = await mediatr.Send(command);
 
-        var newChat = new Chat
-        {
-            Id = Guid.NewGuid(),
-            Name = "DM",
-            IsDirect = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var currentUser = new ChatMember { ChatId = newChat.Id, UserId = currentUserId, JoinedAt = DateTime.UtcNow };
-        var targetUser = new ChatMember { ChatId = newChat.Id, UserId = targetUserId, JoinedAt = DateTime.UtcNow };
-
-        await chatRepository.CreateDirectChatAsync(newChat, currentUser, targetUser);
-
-        return Results.Ok(new { id = newChat.Id, name = "Личный чат", isDirect = true });
+        return Results.Created($"/chats/direct/{result.Id}", result);
     })
     .RequireAuthorization();
 
     //endpoint - получение участников чата
-    app.MapGet("/chats/{chatId}/members", async (Guid chatId, IChatRepository chatRepository, IUserStatusManager statusManager, HttpContext context) =>
+    app.MapGet("/chats/{chatId}/members", async (Guid chatId, ISender mediatr) =>
     {
-        var membersAsUsers = await chatRepository.GetMembersAsync(chatId);
+        var query = new GetChatMembersQuery(chatId);
+        var result = await mediatr.Send(query);
 
-        var results = membersAsUsers.Select(u => new
-        {
-            id = u.Id,
-            username = u.Username,
-            email = u.Email,
-            isOnline = statusManager.IsUserOnline(u.Id)
-        });
-
-        return Results.Ok(results);
+        return Results.Ok(result);
     })
     .RequireAuthorization();
 
     //endpoint - добавление участников в чат
     app.MapPost("/chats/{chatId:guid}/members", async (
         Guid chatId,
-        AddMemberDto dto,
-        IChatRepository chatRepository,
+        ISender mediatr,
         ClaimsPrincipal user,
-        Microsoft.AspNetCore.SignalR.IHubContext<ChatHub> hubContext) =>
+        AddMemberRequest request,
+        IHubContext <ChatHub> hubContext) =>
     {
-        var chat = await chatRepository.GetByIdAsync(chatId);
-        if (chat == null)
-            return Results.NotFound("Чат не найден.");
-
-        if (chat.IsDirect)
-            return Results.BadRequest("В личный чат нельзя приглашать сторонних участников.");
-
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
             return Results.Unauthorized();
 
-        var isCurrentMember = await chatRepository.IsMemberAsync(chatId, userId);
-        if (!isCurrentMember)
+        try
+        {
+            var command = new AddChatMemberCommand(chatId, request.UserId, userId);
+            var result = await mediatr.Send(command);
+
+            await hubContext.Clients.User(request.UserId.ToString()).SendAsync("ChatInvitation", new
+            {
+                id = result.ChatId,
+                name = result.ChatName,
+                isDirect = result.IsDirect
+            });
+
+            return Results.Ok("Пользователь успешно добавлен в чат.");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Results.NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
             return Results.Forbid();
-
-        var isAlreadyMember = await chatRepository.IsMemberAsync(chatId, dto.UserId);
-        if (isAlreadyMember)
-            return Results.Conflict("Пользователь уже состоит в этом чате.");
-
-        var member = new ChatMember
+        }
+        catch (InvalidOperationException ex)
         {
-            ChatId = chatId,
-            UserId = dto.UserId,
-            JoinedAt = DateTime.UtcNow
-        };
+            if (ex.Message.Contains("состоит в этом чате"))
+                return Results.Conflict(ex.Message);
 
-        await chatRepository.AddMemberAsync(member);
-
-        await hubContext.Clients.User(dto.UserId.ToString()).SendAsync("ChatInvitation", new
-        {
-            id = chat.Id,
-            name = chat.Name,
-            isDirect = chat.IsDirect
-        });
-
-        return Results.Ok("Пользователь успешно добавлен в чат.");
+            return Results.BadRequest(ex.Message);
+        }
     })
     .RequireAuthorization();
 
     //endpoint - получение всех пользователей
-    app.MapGet("/users", async (IUserRepository userRepository, IUserStatusManager statusManager, ClaimsPrincipal user) =>
+    app.MapGet("/users", async (ClaimsPrincipal user, ISender mediatr) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var currentUserId))
             return Results.Unauthorized();
 
-        var allUsers = await userRepository.GetAllAsync();
-
-        var result = allUsers
-            .Where(u => u.Id != currentUserId)
-            .Select(u => new
-            {
-                id = u.Id,
-                username = u.Username,
-                isOnline = statusManager.IsUserOnline(u.Id)
-            });
+        var query = new GetAllUsersQuery(currentUserId);
+        var result = await mediatr.Send(query);
 
         return Results.Ok(result);
     })
