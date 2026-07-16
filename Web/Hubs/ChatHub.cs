@@ -1,9 +1,11 @@
-﻿using LightChat.Core.Entities;
-using LightChat.Core.Repositories;
-using LightChat.Web.Services;
-using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+
 using Microsoft.AspNetCore.SignalR;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+
+using LightChat.Core.Entities;
+using LightChat.Core.Interfaces;
+using LightChat.Core.Repositories;
 
 namespace LightChat.Web.Hubs
 {

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 using LightChat.Web.Hubs;
-using LightChat.Web.Models;
+using LightChat.Web.Requests;
 using LightChat.Web.Services;
 using LightChat.Web.Extensions;
 using LightChat.Web.Middlwares;
@@ -39,8 +39,6 @@ try
     builder.Services.AddSignalR(options => options.EnableDetailedErrors = true);
 
     builder.Services.AddOpenApi();
-
-    builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
