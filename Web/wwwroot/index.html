@@ -296,7 +296,7 @@
                     const currentTime = Math.floor(Date.now() / 1000);
                     if (parsed.exp > currentTime) {
                         jwtToken = savedToken;
-                        currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
+                        currentUserId = parsed["sub"];
                         await initializeApp();
                         return;
                     }
@@ -324,12 +324,13 @@
                 if (!response.ok) throw new Error("Неверное имя пользователя или пароль");
 
                 const data = await response.json();
-                jwtToken = data.token;
-
-                const parsed = parseJwt(jwtToken);
+                jwtToken = data.tokenString;
 
                 localStorage.setItem("lightchat_token", jwtToken)
-                currentUserId = parsed["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || parsed["sub"] || parsed["nameid"];
+
+                const payload = parseJwt(jwtToken);
+                currentUserId = payload.sub;
+                currentUsername = payload.unique_name;
 
                 console.log("JWT получен успешно!");
                 await initializeApp();
@@ -476,6 +477,7 @@
             localStorage.removeItem("lightchat_token");
             jwtToken = "";
             currentUserId = null;
+            currentUsername = null;
             activeChatId = null;
 
             if (connection) { connection.stop(); }
