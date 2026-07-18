@@ -16,22 +16,27 @@ namespace LightChat.Infrastructure.Repositories
 
         public async Task<IEnumerable<Message>> GetChatHistoryAsync(Guid chatId, int limit, Guid? beforeMessageId = null)
         {
-            DateTime? beforeMessageTargetDate = null;
-
+            var query = _context.Messages.Where(m => m.ChatId == chatId);
             if (beforeMessageId.HasValue)
             {
-                beforeMessageTargetDate = await _context.Messages
+                var before = await _context.Messages
                     .Where(x => x.Id == beforeMessageId)
-                    .Select(x => x.SentAt)
+                    .Select(x => new { x.SentAt, x.Id })
                     .FirstOrDefaultAsync();
+
+                if (before != null)
+                {
+                    query = query.Where(m => m.SentAt < before.SentAt ||
+                        (m.SentAt == before.SentAt && m.Id < before.Id));
+                }
             }
 
-            return await _context.Messages
-                .Where(m => m.ChatId == chatId)
-                .Where(m => beforeMessageTargetDate == null || m.SentAt < beforeMessageTargetDate)
+            return await query
                 .OrderByDescending(m => m.SentAt)
+                .ThenByDescending(m => m.Id)
                 .Take(limit)
-                .Reverse()
+                .OrderBy(m => m.SentAt)
+                .ThenBy(m => m.Id)
                 .ToListAsync();
         }
 
