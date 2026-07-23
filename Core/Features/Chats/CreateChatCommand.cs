@@ -13,6 +13,8 @@ namespace LightChat.Core.Features.Chats
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Название чата не может быть пустым")
                 .MinimumLength(3).WithMessage("Название чата должно быть не менее 3 символов");
+            RuleFor(x => x.CreatorUserId)
+                .NotEmpty();
         }
     }
 }
