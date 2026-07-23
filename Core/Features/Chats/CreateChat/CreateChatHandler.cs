@@ -2,9 +2,8 @@
 
 using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Chats;
 
-namespace LightChat.Infrastructure.Features.Chats
+namespace LightChat.Core.Features.Chats.CreateChat
 {
     public class CreateChatHandler : IRequestHandler<CreateChatCommand, ChatResultDto>
     {

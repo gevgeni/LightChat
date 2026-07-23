@@ -1,7 +1,8 @@
 ﻿using MediatR;
 using FluentValidation;
+using LightChat.Core.Features.Users.GetAllUsers;
 
-namespace LightChat.Core.Features.Users
+namespace LightChat.Core.Features.Users.UserRegister
 {
     public record UserRegisterCommand(string Username, string Email, string Password) : IRequest<UserDto>;
 

@@ -2,9 +2,8 @@
 
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Users;
 
-namespace LightChat.Infrastructure.Features.Users
+namespace LightChat.Core.Features.Users.GetAllUsers
 {
     internal class GetAllUsersHandler : IRequestHandler<GetAllUsersQuery, IEnumerable<UserDto>>
     {

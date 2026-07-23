@@ -1,9 +1,9 @@
 ﻿using MediatR;
 
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Chats;
+using LightChat.Core.Features.Chats.CreateChat;
 
-namespace LightChat.Infrastructure.Features.Chats
+namespace LightChat.Core.Features.Chats.GetUserChats
 {
     public class GetUserChatsHandler : IRequestHandler<GetUserChatsQuery, IEnumerable<ChatResultDto>>
     {

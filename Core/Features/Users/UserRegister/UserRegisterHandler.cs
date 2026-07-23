@@ -3,9 +3,9 @@
 using LightChat.Core.Entities;
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Users;
+using LightChat.Core.Features.Users.GetAllUsers;
 
-namespace LightChat.Infrastructure.Features.Users
+namespace LightChat.Core.Features.Users.UserRegister
 {
     public class UserRegisterHandler : IRequestHandler<UserRegisterCommand, UserDto>
     {

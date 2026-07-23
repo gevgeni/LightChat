@@ -2,10 +2,8 @@
 
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Users;
-using LightChat.Infrastructure.Security;
 
-namespace LightChat.Infrastructure.Features.Users
+namespace LightChat.Core.Features.Users.UserJwtAuthorize
 {
     public class UserJwtAuthorizeHandler : IRequestHandler<UserJwtAuthorizeQuery, JwtTokenDto>
     {

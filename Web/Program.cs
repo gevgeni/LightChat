@@ -15,12 +15,18 @@ using LightChat.Web.Extensions;
 using LightChat.Web.Middlwares;
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Users;
-using LightChat.Core.Features.Chats;
-using LightChat.Core.Features.Messages;
 using LightChat.Infrastructure.Security;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
+
+using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Users.UserJwtAuthorize;
+using LightChat.Core.Features.Users.UserRegister;
+using LightChat.Core.Features.Users.GetAllUsers;
+using LightChat.Core.Features.Chats.GetChatMembers;
+using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.GetUserChats;
+using LightChat.Core.Features.Chats.CreateChat;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -43,7 +49,7 @@ try
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
-    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LightChat.Infrastructure.AssemblyMarker).Assembly));
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LightChat.Core.AssemblyMarker).Assembly));
     builder.Services.AddValidatorsFromAssembly(typeof(LightChat.Core.AssemblyMarker).Assembly);
 
     #region Настройка Redis

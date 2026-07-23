@@ -2,9 +2,8 @@
 
 using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Messages;
 
-namespace Infrastructure.Features.Messages
+namespace LightChat.Core.Features.Messages.GetMessageHistory
 {
     public class GetMessageHistoryHandler : IRequestHandler<GetMessageHistoryQuery, IEnumerable<MessageDto>>
     {

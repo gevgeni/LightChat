@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using FluentValidation;
 
-namespace LightChat.Core.Features.Users
+namespace LightChat.Core.Features.Users.UserJwtAuthorize
 {
     public record UserJwtAuthorizeQuery(string Username, string Password) : IRequest<JwtTokenDto>;
     public record JwtTokenDto(string TokenString);

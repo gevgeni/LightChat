@@ -1,7 +1,7 @@
-﻿using FluentValidation;
-using MediatR;
+﻿using MediatR;
+using FluentValidation;
 
-namespace LightChat.Core.Features.Chats
+namespace LightChat.Core.Features.Chats.CreateChat
 {
     public record CreateChatCommand(string Name, Guid CreatorUserId) : IRequest<ChatResultDto>;
     public record CreateDirectChatCommand(Guid CreatorUserId, Guid TargetUserId) : IRequest<ChatResultDto>;
