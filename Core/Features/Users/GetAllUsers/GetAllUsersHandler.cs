@@ -5,7 +5,7 @@ using LightChat.Core.Repositories;
 
 namespace LightChat.Core.Features.Users.GetAllUsers
 {
-    internal class GetAllUsersHandler : IRequestHandler<GetAllUsersQuery, IEnumerable<UserDto>>
+    public class GetAllUsersHandler : IRequestHandler<GetAllUsersQuery, IEnumerable<UserDto>>
     {
         private readonly IUserRepository _userRepository;
         private readonly IUserStatusManager _statusManager;

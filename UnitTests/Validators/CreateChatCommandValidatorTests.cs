@@ -1,5 +1,5 @@
 ﻿using FluentValidation.TestHelper;
-using LightChat.Core.Features.Chats;
+using LightChat.Core.Features.Chats.CreateChat;
 
 namespace LightChat.Core.Tests.Validators
 {
