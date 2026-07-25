@@ -1,32 +1,29 @@
-using System.Security.Claims;
-
-using Serilog;
-using MediatR;
 using FluentValidation;
-using StackExchange.Redis;
-
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-
-using LightChat.Web.Hubs;
-using LightChat.Web.Requests;
-using LightChat.Web.Services;
-using LightChat.Web.Extensions;
-using LightChat.Web.Middlwares;
-using LightChat.Core.Interfaces;
-using LightChat.Core.Repositories;
-using LightChat.Infrastructure.Security;
-using LightChat.Infrastructure.Persistence;
-using LightChat.Infrastructure.Repositories;
-
+using LightChat.Core.Entities;
+using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Features.Chats.GetChatMembers;
+using LightChat.Core.Features.Chats.GetUserChats;
 using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Users.GetAllUsers;
 using LightChat.Core.Features.Users.UserJwtAuthorize;
 using LightChat.Core.Features.Users.UserRegister;
-using LightChat.Core.Features.Users.GetAllUsers;
-using LightChat.Core.Features.Chats.GetChatMembers;
-using LightChat.Core.Features.Chats.AddChatMember;
-using LightChat.Core.Features.Chats.GetUserChats;
-using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Interfaces;
+using LightChat.Core.Repositories;
+using LightChat.Infrastructure.Persistence;
+using LightChat.Infrastructure.Repositories;
+using LightChat.Infrastructure.Security;
+using LightChat.Web.Extensions;
+using LightChat.Web.Hubs;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Requests;
+using LightChat.Web.Services;
+using MediatR;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using StackExchange.Redis;
+using System.Security.Claims;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -231,9 +228,13 @@ try
     .RequireAuthorization();
 
     //endpoint - получение участников чата
-    app.MapGet("/chats/{chatId}/members", async (Guid chatId, ISender mediatr) =>
+    app.MapGet("/chats/{chatId}/members", async (Guid chatId, ClaimsPrincipal user, ISender mediatr) =>
     {
-        var query = new GetChatMembersQuery(chatId);
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        var query = new GetChatMembersQuery(chatId, userId);
         var result = await mediatr.Send(query);
 
         return Results.Ok(result);

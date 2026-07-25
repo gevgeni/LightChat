@@ -490,7 +490,11 @@
             try {
                 const response = await fetch(`/chats/${chatId}/members`, {
                     method: 'GET',
-                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetUserId: targetUserId })
                 });
 
                 if (!response.ok) throw new Error("Не удалось загрузить участников");

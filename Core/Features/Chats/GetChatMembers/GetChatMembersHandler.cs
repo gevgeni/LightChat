@@ -17,6 +17,11 @@ namespace LightChat.Core.Features.Chats.GetChatMembers
 
         public async Task<IEnumerable<ChatMembersDto>> Handle(GetChatMembersQuery request, CancellationToken cancellationToken)
         {
+            var isMember = await _chatRepository.IsMemberAsync(request.ChatId, request.UserId);
+
+            if (!isMember)
+                throw new UnauthorizedAccessException("Вы не состоите в этом чате.");
+
             var membersAsUsers = await _chatRepository.GetMembersAsync(request.ChatId);
 
             var results = membersAsUsers.Select(u => new ChatMembersDto
