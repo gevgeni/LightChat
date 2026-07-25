@@ -493,8 +493,7 @@
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`,
                         'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ targetUserId: targetUserId })
+                    }
                 });
 
                 if (!response.ok) throw new Error("Не удалось загрузить участников");
