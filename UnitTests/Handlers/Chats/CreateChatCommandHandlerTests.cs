@@ -5,7 +5,7 @@ using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
 using LightChat.Core.Features.Chats.CreateChat;
 
-namespace LightChat.Core.Tests.Handlers
+namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class CreateChatCommandHandlerTests
     {

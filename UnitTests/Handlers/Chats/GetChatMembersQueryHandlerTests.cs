@@ -6,7 +6,7 @@ using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
 using LightChat.Core.Features.Chats.GetChatMembers;
 
-namespace LightChat.Core.Tests.Handlers
+namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class GetChatMembersQueryHandlerTests
     {
@@ -24,9 +24,28 @@ namespace LightChat.Core.Tests.Handlers
         }
 
         [Fact]
+        public async Task Handle_Should_ThrowUnauthorizedAccessException_When_UserIsNotMember()
+        {
+            var query = new GetChatMembersQuery(Guid.NewGuid(), Guid.NewGuid());
+
+            _chatRepositoryMock
+                .Setup(repo => repo.IsMemberAsync(query.ChatId, query.UserId))
+                .ReturnsAsync(false);
+
+            Func<Task> act = async () => await _handler.Handle(query, CancellationToken.None);
+
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Вы не состоите в этом чате.");
+
+            _chatRepositoryMock.Verify(repo => repo.IsMemberAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Once);
+            _chatRepositoryMock.Verify(repo => repo.GetMembersAsync(It.IsAny<Guid>()), Times.Never);
+            _statusManagerMock.Verify(m => m.IsUserOnline(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
         public async Task Handle_Should_ReturnChatMembers()
         {
-            var query = new GetChatMembersQuery(Guid.NewGuid());
+            var query = new GetChatMembersQuery(Guid.NewGuid(), Guid.NewGuid());
             var members = new List<User>
             {
                 new() { Id = Guid.NewGuid(), Username = "username1", PasswordHash = "hashed_pass" },
@@ -42,13 +61,25 @@ namespace LightChat.Core.Tests.Handlers
             ));
 
             _chatRepositoryMock
+                .Setup(repo => repo.IsMemberAsync(query.ChatId, query.UserId))
+                .ReturnsAsync(true);
+
+            _chatRepositoryMock
                 .Setup(repo => repo.GetMembersAsync(query.ChatId))
                 .ReturnsAsync(members);
+
+            _statusManagerMock
+                .Setup(m => m.IsUserOnline(It.IsAny<Guid>()))
+                .Returns(false);
 
             var result = await _handler.Handle(query, CancellationToken.None);
 
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedMembers);
+
+            _chatRepositoryMock.Verify(repo => repo.IsMemberAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Once);
+            _chatRepositoryMock.Verify(repo => repo.GetMembersAsync(It.IsAny<Guid>()), Times.Once);
+            _statusManagerMock.Verify(m => m.IsUserOnline(It.IsAny<Guid>()), Times.Exactly(members.Count));
         }
     }
 }

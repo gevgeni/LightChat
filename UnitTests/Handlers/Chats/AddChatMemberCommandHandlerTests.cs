@@ -5,7 +5,7 @@ using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
 using LightChat.Core.Features.Chats.AddChatMember;
 
-namespace LightChat.Core.Tests.Handlers
+namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class AddChatMemberCommandHandlerTests
     {
@@ -127,7 +127,7 @@ namespace LightChat.Core.Tests.Handlers
                 .ReturnsAsync(false);
 
             _chatRepositoryMock
-                .Setup(repo => repo.AddMemberAsync(chatMember))
+                .Setup(repo => repo.AddMemberAsync(It.IsAny<ChatMember>()))
                 .Returns(Task.CompletedTask);
 
             var result = await _handler.Handle(command, CancellationToken.None);

@@ -6,7 +6,7 @@ using LightChat.Core.Repositories;
 using LightChat.Core.Features.Chats.CreateChat;
 using LightChat.Core.Features.Chats.GetUserChats;
 
-namespace LightChat.Core.Tests.Handlers
+namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class GetUserChatsQueryHandlerTests
     {

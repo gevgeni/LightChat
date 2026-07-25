@@ -6,7 +6,7 @@ using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
 using LightChat.Core.Features.Users.UserJwtAuthorize;
 
-namespace LightChat.Core.Tests.Handlers
+namespace LightChat.Core.Tests.Handlers.Users
 {
     public class UserJwtAuthorizeQueryHandlerTests
     {
