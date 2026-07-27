@@ -1,5 +1,4 @@
 using FluentValidation;
-using LightChat.Core.Entities;
 using LightChat.Core.Features.Chats.AddChatMember;
 using LightChat.Core.Features.Chats.CreateChat;
 using LightChat.Core.Features.Chats.GetChatMembers;
@@ -326,3 +325,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+public partial class Program { }
