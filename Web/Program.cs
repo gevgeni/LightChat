@@ -92,7 +92,8 @@ try
 
         if (legacyUsers.Count != 0)
         {
-            string defaultHash = BCrypt.Net.BCrypt.HashPassword("123456");
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            string defaultHash = passwordHasher.HashPassword("123456");
 
             foreach (var user in legacyUsers)
                 user.PasswordHash = defaultHash;

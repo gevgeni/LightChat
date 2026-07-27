@@ -11,7 +11,17 @@ namespace LightChat.Infrastructure.Security
 
         public bool VerifyPassword(string password, string passwordHash)
         {
-            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+            if (BCrypt.Net.BCrypt.EnhancedVerify(password, passwordHash))
+                return true;
+
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
