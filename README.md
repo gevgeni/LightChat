@@ -46,7 +46,7 @@
 
 ---
 ## Структура проекта
-
+```text
 LightChat/
 ├── Core/                     # Доменная логика, сущности, интерфейсы
 │   ├── Entities/             # Chat, User, Message, ChatMember
@@ -76,7 +76,7 @@ LightChat/
 │   └── Validators/
 │
 └── docker-compose.yml        # Поднятие PostgreSQL и Redis
-
+```
 ---
 ## Запуск проекта (локально)
 
