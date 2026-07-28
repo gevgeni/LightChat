@@ -17,7 +17,7 @@ namespace LightChat.IntegrationTests.Endpoints
         {
             var command = new CreateUserRequest("integration_user", "test@chat.com", "Password123!");
 
-            var response = await Client.PostAsJsonAsync("/api/users", command);
+            var response = await Client.PostAsJsonAsync("/users", command);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -31,7 +31,7 @@ namespace LightChat.IntegrationTests.Endpoints
         {
             var registerCommand = new CreateUserRequest("auth_user", "auth@chat.com", "Password123!");
 
-            await Client.PostAsJsonAsync("/api/users", registerCommand);
+            await Client.PostAsJsonAsync("/users", registerCommand);
 
             var loginQuery = new LoginRequest(registerCommand.Username, registerCommand.Password);
 

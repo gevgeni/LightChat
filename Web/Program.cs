@@ -108,7 +108,7 @@ try
 
     #region Minimal API Эндпоинты
     //endpoint - регистрация пользователя
-    app.MapPost("/api/users", async (CreateUserRequest dto, ISender mediatr, IValidator<UserRegisterCommand> validator) =>
+    app.MapPost("/users", async (CreateUserRequest dto, ISender mediatr, IValidator<UserRegisterCommand> validator) =>
     {
         try
         {
