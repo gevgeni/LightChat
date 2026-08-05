@@ -194,8 +194,6 @@ dotnet test
 - Реализовать API для выхода из чата и удаления сообщений
 
 ---
-## Автор
-
-**Евгений Турковский**
-- GitHub: [ваш-профиль](https://github.com/gevgeni)
+## Связь с автором
+- GitHub: https://github.com/gevgeni
 - Email: evge1599@gmail.com
