@@ -15,6 +15,7 @@
 - ✅ Приглашение участников в групповые чаты
 - ✅ Уведомления о новых сообщениях и приглашениях
 - ✅ Минималистичный веб-клиент (HTML + Tailwind + SignalR)
+- ✅ **Полное тестовое покрытие**: unit-тесты + интеграционные тесты с Testcontainers
 
 ---
 ## Технологический стек
@@ -65,7 +66,7 @@ LightChat/
 │
 ├── Web/                      # Хост-проект (стартовый)
 │   ├── Hubs/                 # ChatHub (SignalR)
-│   ├── Middlewares/          # CustomExceptionHandler
+│   ├── Middlewares/          # CustomExceptionHandler (различает типы ошибок)
 │   ├── Requests/             # DTO для Minimal API
 │   ├── Extensions/           # AuthenticationSetup
 │   ├── wwwroot/              # index.html (клиент)
@@ -73,7 +74,14 @@ LightChat/
 │
 ├── UnitTests/                # Юнит-тесты для хендлеров и валидаторов
 │   ├── Handlers/
+│   │   ├── Chats/
+│   │   ├── Messages/
+│   │   └── Users/
 │   └── Validators/
+│
+├── IntegrationTests/         # Интеграционные тесты (Testcontainers + SignalR)
+│   ├── Endpoints/            # API-тесты (Auth, Chats, Messages, Users)
+│   └── Hubs/                 # SignalR-тесты (Join, Send, Typing, Read)
 │
 └── docker-compose.yml        # Поднятие PostgreSQL и Redis
 ```
@@ -186,11 +194,9 @@ dotnet test
 ---
 ## Планы по развитию (Roadmap)
 
-- Реализовать `GetOnlineUsers()` в `UserStatusManager` (сейчас возвращает пустой массив)
 - Добавить кэширование списка участников чата в Redis
 - Поддержка отправки файлов (изображения, документы)
 - Добавить Swagger/OpenAPI документацию
-- Написать интеграционные тесты для SignalR
 - Реализовать API для выхода из чата и удаления сообщений
 
 ---
