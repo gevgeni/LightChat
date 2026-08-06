@@ -1,8 +1,10 @@
 ﻿using System.Net;
+
 using FluentAssertions;
-using LightChat.Core.Features.Users.UserRegister;
-using LightChat.Core.Features.Users.UserJwtAuthorize;
+
 using LightChat.Web.Requests;
+using LightChat.Core.Features.Users.UserJwtAuthorize;
+using LightChat.Core.Entities;
 
 namespace LightChat.IntegrationTests.Endpoints
 {
@@ -15,35 +17,35 @@ namespace LightChat.IntegrationTests.Endpoints
         [Fact]
         public async Task Register_Should_CreateUserInDatabase_When_RequestIsValid()
         {
-            var command = new CreateUserRequest("integration_user", "test@chat.com", "Password123!");
+            var request = new CreateUserRequest("integration_user", "test@chat.com", "Password123!");
 
-            var response = await Client.PostAsJsonAsync("/users", command);
+            var response = await Client.PostAsJsonAsync("/users", request);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-            var userInDb = DbContext.Users.FirstOrDefault(u => u.Username == command.Username);
+            User? userInDb = null;
+            await ExecuteDbContextAsync(async db => userInDb = db.Users.FirstOrDefault(u => u.Username == request.Username));
+
             userInDb.Should().NotBeNull();
-            userInDb.Email.Should().Be(command.Email);
+            userInDb.Email.Should().Be(request.Email);
         }
 
         [Fact]
         public async Task Login_Should_ReturnJwtToken_When_CredentialsAreValid()
         {
-            var registerCommand = new CreateUserRequest("auth_user", "auth@chat.com", "Password123!");
+            var registerRequest = new CreateUserRequest("auth_user", "auth@chat.com", "Password123!");
 
-            await Client.PostAsJsonAsync("/users", registerCommand);
+            await Client.PostAsJsonAsync("/users", registerRequest);
 
-            var loginQuery = new LoginRequest(registerCommand.Username, registerCommand.Password);
+            var loginRequest = new LoginRequest(registerRequest.Username, registerRequest.Password);
 
-            var response = await Client.PostAsJsonAsync("/auth/login", loginQuery);
+            var response = await Client.PostAsJsonAsync("/auth/login", loginRequest);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-            var result = await response.Content.ReadFromJsonAsync<AuthResponseDto>();
+            var result = await response.Content.ReadFromJsonAsync<JwtTokenDto>();
             result.Should().NotBeNull();
             result.TokenString.Should().NotBeNullOrEmpty();
         }
-
-        private record AuthResponseDto(string TokenString);
     }
 }
