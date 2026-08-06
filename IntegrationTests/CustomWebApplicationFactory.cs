@@ -2,10 +2,8 @@
 
 using Testcontainers.PostgreSql;
 
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LightChat.IntegrationTests
 {
