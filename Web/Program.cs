@@ -44,6 +44,53 @@ try
 
     builder.Services.AddOpenApi();
 
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "LightChat API",
+            Version = "v1",
+            Description = "API для мессенджера LightChat с поддержкой реального времени",
+            Contact = new Microsoft.OpenApi.Models.OpenApiContact
+            {
+                Name = "Евгений Турковский",
+                Email = "evge1599@gmail.com",
+                Url = new Uri("https://github.com/gevgeni")
+            }
+        });
+
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Description = "Введите токен в формате: Bearer {ваш_токен}"
+        });
+
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+            options.IncludeXmlComments(xmlPath);
+    });
+
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
@@ -106,7 +153,15 @@ try
     #endregion
 
     if (app.Environment.IsDevelopment())
+    {
         app.MapOpenApi();
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "LightChat API v1");
+            options.RoutePrefix = "swagger";
+        });
+    }
 
     #region Minimal API Эндпоинты
     //endpoint - регистрация пользователя
@@ -130,7 +185,10 @@ try
         {
             return Results.Conflict(ex.Message);
         }
-    });
+    })
+    .WithTags("Users")
+    .WithName("UserRegistration")
+    .WithDescription("Создает пользователя в БД");
 
     //endpoint - авторизация пользователя с Json Web Token
     app.MapPost("/auth/login", async (LoginRequest request, IValidator<UserJwtAuthorizeQuery> validator, ISender mediatr) =>
@@ -151,10 +209,13 @@ try
         {
             return Results.Forbid();
         }
-    });
+    })
+    .WithTags("Users")
+    .WithName("UserAuthorization")
+    .WithDescription("Выполняет авторизацию пользователя и возвращает jwt токен");
 
     //endpoint - получение истории сообщений
-    app.MapGet("chats/{chatId:guid}/messages", async (
+    app.MapGet("/chats/{chatId:guid}/messages", async (
         Guid chatId,
         int limit,
         Guid? beforeMessageId,
@@ -177,6 +238,9 @@ try
             return Results.Forbid();
         }
     })
+    .WithTags("Messages")
+    .WithName("GetMessageHistory")
+    .WithDescription("Возращает архив сообщений с пагинацией")
     .RequireAuthorization();
 
     //endpoint - получение всех чатов пользователя
@@ -191,6 +255,9 @@ try
 
         return Results.Ok(result);
     })
+    .WithTags("Chats")
+    .WithName("GetUserChats")
+    .WithDescription("Возвращает все чаты текущего пользователя")
     .RequireAuthorization();
 
     //endpoint - создание групового чата
@@ -210,6 +277,9 @@ try
 
         return Results.Created($"/chats/{result.Id}", result);
     })
+    .WithTags("Chats")
+    .WithName("CreateChat")
+    .WithDescription("Создаёт новый групповой чат")
     .RequireAuthorization();
 
     //endpoint - создание личного чата
@@ -227,6 +297,9 @@ try
 
         return Results.Created($"/chats/direct/{result.Id}", result);
     })
+    .WithTags("Chats")
+    .WithName("CreateDirectChat")
+    .WithDescription("Создаёт новый личный чат")
     .RequireAuthorization();
 
     //endpoint - получение участников чата
@@ -241,6 +314,9 @@ try
 
         return Results.Ok(result);
     })
+    .WithTags("Chats")
+    .WithName("GetChatMembers")
+    .WithDescription("Возвращает всех участников чата")
     .RequireAuthorization();
 
     //endpoint - добавление участников в чат
@@ -285,6 +361,9 @@ try
             return Results.BadRequest(ex.Message);
         }
     })
+    .WithTags("Chats")
+    .WithName("AddChatMember")
+    .WithDescription("Добавляет участника в чат")
     .RequireAuthorization();
 
     //endpoint - получение всех пользователей
@@ -299,6 +378,9 @@ try
 
         return Results.Ok(result);
     })
+    .WithTags("Users")
+    .WithName("GetAllUsers")
+    .WithDescription("Возвращает всех пользователей")
     .RequireAuthorization();
     #endregion
 
@@ -327,4 +409,8 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+/// <summary>
+/// Объект для ссылки из WebApplicationFactory
+/// </summary>
 public partial class Program { }

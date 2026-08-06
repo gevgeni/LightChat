@@ -9,6 +9,9 @@ using LightChat.Core.Repositories;
 
 namespace LightChat.Web.Hubs
 {
+    /// <summary>
+    /// Основной Hub двунаправленныз соединений
+    /// </summary>
     [Authorize]
     public class ChatHub : Hub
     {
@@ -18,6 +21,9 @@ namespace LightChat.Web.Hubs
 
         private readonly IUserStatusManager _statusManager;
 
+        /// <summary>
+        /// Основной конструктов ChatHub
+        /// </summary>
         public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository, IUserRepository userRepository, IUserStatusManager statusManager)
         {
             _messageRepository = messageRepository;
@@ -27,6 +33,9 @@ namespace LightChat.Web.Hubs
             _statusManager = statusManager;
         }
 
+        /// <summary>
+        /// Переопределение обработчика подключения по Hub
+        /// </summary>
         public override async Task OnConnectedAsync()
         {
             var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -40,6 +49,9 @@ namespace LightChat.Web.Hubs
             await base.OnConnectedAsync();
         }
 
+        /// <summary>
+        /// Переопределение обработчика отключения от Hub
+        /// </summary>
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             _statusManager.RemoveConnection(Context.ConnectionId, out var userId, out var isFullyOffline);
