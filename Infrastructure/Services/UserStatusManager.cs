@@ -47,7 +47,7 @@ namespace LightChat.Web.Services
 
         public IEnumerable<Guid> GetOnlineUsers()
         {
-            return [];
+            throw new NotImplementedException();
         }
 
         public bool IsUserOnline(Guid userId)
