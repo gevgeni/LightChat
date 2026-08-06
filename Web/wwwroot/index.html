@@ -4,10 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LightChat Minimal Client</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/tailwind.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
-        /* Сохраняем кастомные динамические стили, которые твой JS завязывает на классы */
         .chat-item.active {
             background-color: #3b82f6 !important;
             color: white;
@@ -21,7 +20,6 @@
             background-color: #94a3b8;
         }
 
-        /* Стили для сообщений, завязанные на логику appendSingleMessage */
         .msg {
             max-width: 85%;
             padding: 10px 14px;
@@ -267,14 +265,12 @@
 
         document.getElementById("mobileSidebarOverlay").addEventListener("click", () => toggleMobileSidebar(false));
 
-        // Переопределяем оригинальную функцию selectChat, чтобы при выборе чата меню автоматически закрывалось на мобилках
         const originalSelectChat = selectChat;
         selectChat = async function (chatId, chatName) {
             await originalSelectChat(chatId, chatName);
-            toggleMobileSidebar(false); // Закрываем сайдбар на мобилках после клика по чату
+            toggleMobileSidebar(false);
         };
 
-        // ТВОЙ ОРИГИНАЛЬНЫЙ СУЩЕСТВУЮЩИЙ JS-КОД (БЕЗ ИЗМЕНЕНИЙ)
         function parseJwt(token) {
             try {
                 const base64Url = token.split('.')[1];
@@ -507,7 +503,6 @@
 
                 members.forEach(member => {
                     const item = document.createElement("div");
-                    // Заменены инлайн-стили старой верстки на Tailwind-классы для элементов сайдбара
                     item.className = "member-item flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition cursor-pointer text-sm font-medium text-slate-700";
                     item.setAttribute("data-member-id", member.id);
 
@@ -594,7 +589,7 @@
             document.getElementById("messagesList").innerHTML = "";
 
             document.getElementById("noChatSelected").style.display = "none";
-            document.getElementById("activeChatArea").style.className = "";
+            document.getElementById("activeChatArea").classList.remove("hidden");
             document.getElementById("activeChatArea").style.display = "flex";
             document.getElementById("currentChatTitle").innerText = chatName;
 
