@@ -1,28 +1,30 @@
+using System.Security.Claims;
+
+using Serilog;
+using MediatR;
 using FluentValidation;
-using LightChat.Core.Features.Chats.AddChatMember;
-using LightChat.Core.Features.Chats.CreateChat;
-using LightChat.Core.Features.Chats.GetChatMembers;
-using LightChat.Core.Features.Chats.GetUserChats;
-using LightChat.Core.Features.Messages.GetMessageHistory;
-using LightChat.Core.Features.Users.GetAllUsers;
-using LightChat.Core.Features.Users.UserJwtAuthorize;
-using LightChat.Core.Features.Users.UserRegister;
-using LightChat.Core.Interfaces;
-using LightChat.Core.Repositories;
+using StackExchange.Redis;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+
+using LightChat.Web.Hubs;
+using LightChat.Web.Services;
+using LightChat.Web.Requests;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Extensions;
+using LightChat.Infrastructure.Security;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-using LightChat.Infrastructure.Security;
-using LightChat.Web.Extensions;
-using LightChat.Web.Hubs;
-using LightChat.Web.Middlwares;
-using LightChat.Web.Requests;
-using LightChat.Web.Services;
-using MediatR;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
-using StackExchange.Redis;
-using System.Security.Claims;
+using LightChat.Core.Interfaces;
+using LightChat.Core.Repositories;
+using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Features.Chats.GetUserChats;
+using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.GetChatMembers;
+using LightChat.Core.Features.Users.GetAllUsers;
+using LightChat.Core.Features.Users.UserRegister;
+using LightChat.Core.Features.Users.UserJwtAuthorize;
+using LightChat.Core.Features.Messages.GetMessageHistory;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -156,7 +158,7 @@ try
         Guid chatId,
         int limit,
         Guid? beforeMessageId,
-        ClaimsPrincipal user, 
+        ClaimsPrincipal user,
         ISender mediatr) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
