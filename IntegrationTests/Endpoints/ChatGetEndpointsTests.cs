@@ -88,7 +88,7 @@ namespace LightChat.IntegrationTests.Endpoints
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-            var result = await response.Content.ReadFromJsonAsync<IEnumerable<ChatMembersDto>>();
+            var result = await response.Content.ReadFromJsonAsync<IEnumerable<ChatMemberDto>>();
 
             result.Should().NotBeNullOrEmpty();
             result.Should().HaveCountGreaterThanOrEqualTo(2);

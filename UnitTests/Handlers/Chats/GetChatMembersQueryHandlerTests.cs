@@ -53,7 +53,7 @@ namespace LightChat.Core.Tests.Handlers.Chats
                 new() { Id = Guid.NewGuid(), Username = "username3", PasswordHash = "hashed_pass" },
             };
 
-            var expectedMembers = members.Select(m => new ChatMembersDto(
+            var expectedMembers = members.Select(m => new ChatMemberDto(
                 m.Id,
                 m.Username, 
                 m.Email,
