@@ -12,6 +12,7 @@ using LightChat.Web.Services;
 using LightChat.Web.Requests;
 using LightChat.Web.Middlwares;
 using LightChat.Web.Extensions;
+using LightChat.Infrastructure.Services;
 using LightChat.Infrastructure.Security;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
@@ -44,6 +45,7 @@ try
 
     builder.Services.AddOpenApi();
 
+    #region Настройка Swagger
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
@@ -71,25 +73,26 @@ try
         });
 
         options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
 
         var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
         if (File.Exists(xmlPath))
             options.IncludeXmlComments(xmlPath);
     });
+    #endregion
 
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
@@ -100,6 +103,8 @@ try
     #region Настройка Redis
     var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
     builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
+
+    builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(CachingBehavior<,>));
     #endregion
 
     #region Настройка PostgreSQL
@@ -109,14 +114,20 @@ try
     #endregion
 
     #region Регистрация репозиториев
-    builder.Services.AddScoped<IUserRepository, EfUserRepository>();
     builder.Services.AddScoped<IChatRepository, EfChatRepository>();
     builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
+    builder.Services.AddScoped<EfUserRepository>();
+    builder.Services.AddScoped<IUserRepository>(provider =>
+        new CachedUserRepository(
+            provider.GetRequiredService<EfUserRepository>(),
+            provider.GetRequiredService<IConnectionMultiplexer>()
+        ));
     #endregion
 
     builder.Services.AddSingleton<IUserStatusManager, UserStatusManager>();
     builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
     builder.Services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+    builder.Services.AddSingleton<ICacheInvalidator, RedisCacheInvalidator>();
 
     #region JWT авторизация
     builder.Services.AddWebAuthentication(builder.Configuration);
@@ -152,6 +163,7 @@ try
     }
     #endregion
 
+    #region Develop настройки
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
@@ -162,6 +174,7 @@ try
             options.RoutePrefix = "swagger";
         });
     }
+    #endregion
 
     #region Minimal API Эндпоинты
     //endpoint - регистрация пользователя
