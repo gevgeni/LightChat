@@ -11,10 +11,13 @@ namespace LightChat.Core.Features.Users.UserRegister
     {
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
-        public UserRegisterHandler(IUserRepository userRepository, IPasswordHasher passwordHasher)
+        private readonly ICacheInvalidator _cacheInvalidator;
+
+        public UserRegisterHandler(IUserRepository userRepository, IPasswordHasher passwordHasher, ICacheInvalidator cacheInvalidator)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
+            _cacheInvalidator = cacheInvalidator;
         }
 
         public async Task<UserDto> Handle(UserRegisterCommand request, CancellationToken cancellationToken)
@@ -33,6 +36,8 @@ namespace LightChat.Core.Features.Users.UserRegister
             };
 
             await _userRepository.CreateAsync(user);
+
+            await _cacheInvalidator.InvalidateAllUsersListAsync();
 
             return new UserDto(user.Id, user.Username, false);
         }

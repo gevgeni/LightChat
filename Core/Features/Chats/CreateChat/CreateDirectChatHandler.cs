@@ -1,16 +1,19 @@
-﻿using MediatR;
-
-using LightChat.Core.Entities;
+﻿using LightChat.Core.Entities;
+using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
+using MediatR;
 
 namespace LightChat.Core.Features.Chats.CreateChat
 {
     public class CreateDirectChatHandler : IRequestHandler<CreateDirectChatCommand, ChatResultDto>
     {
         private readonly IChatRepository _chatRepository;
-        public CreateDirectChatHandler(IChatRepository chatRepository)
+        private readonly ICacheInvalidator _cacheInvalidator;
+
+        public CreateDirectChatHandler(IChatRepository chatRepository, ICacheInvalidator cacheInvalidator)
         {
             _chatRepository = chatRepository;
+            _cacheInvalidator = cacheInvalidator;
         }
 
         public async Task<ChatResultDto> Handle(CreateDirectChatCommand request, CancellationToken cancellationToken)
@@ -31,6 +34,8 @@ namespace LightChat.Core.Features.Chats.CreateChat
             var targetUser = new ChatMember { ChatId = newChat.Id, UserId = request.TargetUserId, JoinedAt = DateTime.UtcNow };
 
             await _chatRepository.CreateDirectChatAsync(newChat, currentUser, targetUser);
+
+            await _cacheInvalidator.InvalidateUserChatsAsync(request.CreatorUserId, request.TargetUserId);
 
             return new ChatResultDto(newChat.Id, newChat.Name, newChat.CreatedAt, newChat.IsDirect);
         }

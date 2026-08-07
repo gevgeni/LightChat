@@ -4,7 +4,7 @@ using LightChat.Core.Repositories;
 
 namespace LightChat.Core.Features.Chats.GetChatMembers
 {
-    public class GetChatMembersHandler : IRequestHandler<GetChatMembersQuery, IEnumerable<ChatMembersDto>>
+    public class GetChatMembersHandler : IRequestHandler<GetChatMembersQuery, IEnumerable<ChatMemberDto>>
     {
         private readonly IChatRepository _chatRepository;
         private readonly IUserStatusManager _statusManager;
@@ -15,7 +15,7 @@ namespace LightChat.Core.Features.Chats.GetChatMembers
             _statusManager = statusManager;
         }
 
-        public async Task<IEnumerable<ChatMembersDto>> Handle(GetChatMembersQuery request, CancellationToken cancellationToken)
+        public async Task<IEnumerable<ChatMemberDto>> Handle(GetChatMembersQuery request, CancellationToken cancellationToken)
         {
             var isMember = await _chatRepository.IsMemberAsync(request.ChatId, request.UserId);
 
@@ -24,7 +24,7 @@ namespace LightChat.Core.Features.Chats.GetChatMembers
 
             var membersAsUsers = await _chatRepository.GetMembersAsync(request.ChatId);
 
-            var results = membersAsUsers.Select(u => new ChatMembersDto
+            var results = membersAsUsers.Select(u => new ChatMemberDto
             (
                 u.Id,
                 u.Username,

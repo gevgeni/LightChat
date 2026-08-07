@@ -2,15 +2,19 @@
 
 using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
+using LightChat.Core.Interfaces;
 
 namespace LightChat.Core.Features.Chats.AddChatMember
 {
     public class AddChatMemberHandler : IRequestHandler<AddChatMemberCommand, AddMemberDto>
     {
         private readonly IChatRepository _chatRepository;
-        public AddChatMemberHandler(IChatRepository chatRepository)
+        private readonly ICacheInvalidator _cacheInvalidator;
+
+        public AddChatMemberHandler(IChatRepository chatRepository, ICacheInvalidator cacheInvalidator)
         {
             _chatRepository = chatRepository;
+            _cacheInvalidator = cacheInvalidator;
         }
 
         public async Task<AddMemberDto> Handle(AddChatMemberCommand request, CancellationToken cancellationToken)
@@ -36,6 +40,9 @@ namespace LightChat.Core.Features.Chats.AddChatMember
             };
 
             await _chatRepository.AddMemberAsync(member);
+
+            await _cacheInvalidator.InvalidateUserChatsAsync(request.TargetUserId);
+            await _cacheInvalidator.InvalidateChatMembersAsync(request.ChatId);
 
             return new AddMemberDto(chat.Id, chat.Name, chat.IsDirect, request.TargetUserId);
         }
