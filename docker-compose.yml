@@ -14,12 +14,25 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ")LK-7cV)>wxs*%a"
+      POSTGRES_PASSWORD: ')"LK-7cV)>wxs*%a'
       POSTGRES_DB: litechat_db
     ports:
       - "5432:5432"
     volumes:
       - litechat-data:/var/lib/postgresql/data
+    networks:
+      - light-chat-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: lightchat-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # AMQP порт для .NET бэкенда
+      - "15672:15672" # Web UI панель управления
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - light-chat-network
 
