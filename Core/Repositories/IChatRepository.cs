@@ -7,11 +7,13 @@ namespace LightChat.Core.Repositories
         Task<Chat?> GetByIdAsync(Guid id);
 
         Task AddMemberAsync(ChatMember member);
+        Task RemoveMemberAsync(Guid chatId, Guid userId);
         Task<bool> IsMemberAsync(Guid chatId, Guid userId);
 
         Task<IEnumerable<Chat>> GetUserChatsAsync(Guid userId);
         Task<IEnumerable<User>> GetMembersAsync(Guid chatId);
         Task CreateGroupChatAsync(Chat chat, ChatMember member);
+        Task DeleteChatAsync(Guid chatId);
 
         Task<Chat?> GetDirectChatAsync(Guid currentUserId, Guid targetUserId);
         Task CreateDirectChatAsync(Chat chat, ChatMember currentUser, ChatMember targetUser);

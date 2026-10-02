@@ -6,6 +6,7 @@
         public string Name { get; set; } = null!;
         public bool IsDirect { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public Guid CreatorId { get; set; }
 
         public ICollection<Message> Messages { get; set; } = [];
         public ICollection<ChatMember> ChatMembers { get; set; } = [];

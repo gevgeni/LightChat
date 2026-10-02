@@ -1,7 +1,8 @@
-﻿using LightChat.Core.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+
+using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
 using LightChat.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace LightChat.Infrastructure.Repositories
 {
@@ -64,6 +65,24 @@ namespace LightChat.Infrastructure.Repositories
             _context.Chats.Add(chat);
             _context.ChatMembers.Add(currentUser);
             _context.ChatMembers.Add(targetUser);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task RemoveMemberAsync(Guid chatId, Guid userId)
+        {
+            ChatMember? member = await _context.ChatMembers.FirstOrDefaultAsync(m => m.UserId == userId && m.ChatId == chatId) 
+                ?? throw new InvalidOperationException("Такого участника нет в чате.");
+
+            _context.ChatMembers.Remove(member);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteChatAsync(Guid chatId)
+        {
+            var chat = await _context.Chats.FindAsync(chatId)
+                ?? throw new KeyNotFoundException("Чат не найден.");
+
+            _context.Chats.Remove(chat);
             await _context.SaveChangesAsync();
         }
     }
