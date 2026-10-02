@@ -1,0 +1,81 @@
+﻿.chat-item.active {
+    background-color: #3b82f6 !important;
+    color: white;
+}
+
+.member-status.online {
+    background-color: #10b981;
+}
+
+.member-status.offline {
+    background-color: #94a3b8;
+}
+
+.msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 16px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+@media (min-width: 768px) {
+    .msg {
+        max-width: 70%;
+        font-size: 17px;
+    }
+}
+
+.msg.incoming {
+    background-color: #f1f5f9;
+    align-self: flex-start;
+    color: #1e293b;
+    border-top-left-radius: 2px;
+}
+
+.msg.outgoing {
+    background-color: #4f46e5;
+    align-self: flex-end;
+    color: white;
+    border-top-right-radius: 2px;
+}
+
+.msg-sender {
+    font-weight: 600;
+    font-size: 11px;
+    display: block;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.msg-sentAt {
+    font-size: 10px;
+    text-align: right;
+    display: block;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.msg.outgoing .msg-sentAt {
+    color: #c7d2fe;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+}
