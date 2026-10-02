@@ -23,7 +23,8 @@ namespace LightChat.Core.Features.Chats.CreateChat
                 Id = Guid.NewGuid(),
                 Name = request.Name,
                 IsDirect = false,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatorId = request.CreatorUserId
             };
 
             var member = new ChatMember

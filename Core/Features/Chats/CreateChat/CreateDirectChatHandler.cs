@@ -27,7 +27,8 @@ namespace LightChat.Core.Features.Chats.CreateChat
                 Id = Guid.NewGuid(),
                 Name = "DM",
                 IsDirect = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatorId = request.CreatorUserId
             };
 
             var currentUser = new ChatMember { ChatId = newChat.Id, UserId = request.CreatorUserId, JoinedAt = DateTime.UtcNow };
