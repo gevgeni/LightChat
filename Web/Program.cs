@@ -18,7 +18,9 @@ using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
+using LightChat.Core.Features.Chats.LeaveChat;
 using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Features.Chats.DeleteChat;
 using LightChat.Core.Features.Chats.GetUserChats;
 using LightChat.Core.Features.Chats.AddChatMember;
 using LightChat.Core.Features.Chats.GetChatMembers;
@@ -177,6 +179,8 @@ try
     #endregion
 
     #region Minimal API Эндпоинты
+
+    #region Users
     //endpoint - регистрация пользователя
     app.MapPost("/users", async (CreateUserRequest dto, ISender mediatr, IValidator<UserRegisterCommand> validator) =>
     {
@@ -227,52 +231,25 @@ try
     .WithName("UserAuthorization")
     .WithDescription("Выполняет авторизацию пользователя и возвращает jwt токен");
 
-    //endpoint - получение истории сообщений
-    app.MapGet("/chats/{chatId:guid}/messages", async (
-        Guid chatId,
-        int limit,
-        Guid? beforeMessageId,
-        ClaimsPrincipal user,
-        ISender mediatr) =>
+    //endpoint - получение всех пользователей
+    app.MapGet("/users", async (ClaimsPrincipal user, ISender mediatr) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var currentUserId))
             return Results.Unauthorized();
 
-        try
-        {
-            var command = new GetMessageHistoryQuery(chatId, userId, limit, beforeMessageId);
-            var result = await mediatr.Send(command);
-
-            return Results.Ok(result);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-    })
-    .WithTags("Messages")
-    .WithName("GetMessageHistory")
-    .WithDescription("Возращает архив сообщений с пагинацией")
-    .RequireAuthorization();
-
-    //endpoint - получение всех чатов пользователя
-    app.MapGet("/chats", async (ClaimsPrincipal user, ISender mediatr) =>
-    {
-        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
-            return Results.Unauthorized();
-
-        var query = new GetUserChatsQuery(userId);
+        var query = new GetAllUsersQuery(currentUserId);
         var result = await mediatr.Send(query);
 
         return Results.Ok(result);
     })
-    .WithTags("Chats")
-    .WithName("GetUserChats")
-    .WithDescription("Возвращает все чаты текущего пользователя")
+    .WithTags("Users")
+    .WithName("GetAllUsers")
+    .WithDescription("Возвращает всех пользователей")
     .RequireAuthorization();
+    #endregion
 
+    #region Chats
     //endpoint - создание групового чата
     app.MapPost("/chats", async (CreateChatRequest request, IValidator<CreateChatCommand> validator, ClaimsPrincipal principal, ISender mediatr) =>
     {
@@ -313,6 +290,62 @@ try
     .WithTags("Chats")
     .WithName("CreateDirectChat")
     .WithDescription("Создаёт новый личный чат")
+    .RequireAuthorization();
+
+    //endpoint - удаление чата
+    app.MapDelete("/chats/{chatId:guid}", async (
+        Guid chatId,
+        ClaimsPrincipal user,
+        ISender  mediatr,
+        IHubContext<ChatHub> hubContext) =>
+    {
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        try
+        {
+            var getChatMembersQuery = new GetChatMembersQuery(chatId, userId);
+            var members = await mediatr.Send(getChatMembersQuery);
+            var memberIds = members.Select(m => m.Id).ToList();
+
+            var command = new DeleteChatCommand(chatId, userId);
+            await mediatr.Send(command);
+
+            await hubContext.Clients.Users(memberIds.Select(id => id.ToString()))
+                .SendAsync("ChatDeleted", new { ChatId = chatId });
+
+            return Results.Ok("Чат успешно удален.");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Results.NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
+    })
+    .WithTags("Chats")
+    .WithName("DeleteChat")
+    .WithDescription("Удаляет чат полностью (для всех участников)")
+    .RequireAuthorization(); ;
+
+    //endpoint - получение всех чатов пользователя
+    app.MapGet("/chats", async (ClaimsPrincipal user, ISender mediatr) =>
+    {
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        var query = new GetUserChatsQuery(userId);
+        var result = await mediatr.Send(query);
+
+        return Results.Ok(result);
+    })
+    .WithTags("Chats")
+    .WithName("GetUserChats")
+    .WithDescription("Возвращает все чаты текущего пользователя")
     .RequireAuthorization();
 
     //endpoint - получение участников чата
@@ -379,22 +412,77 @@ try
     .WithDescription("Добавляет участника в чат")
     .RequireAuthorization();
 
-    //endpoint - получение всех пользователей
-    app.MapGet("/users", async (ClaimsPrincipal user, ISender mediatr) =>
+    //endpoint - выход из чата
+    app.MapDelete("/chats/{chatId:guid}/leave", async (
+        Guid chatId,
+        ClaimsPrincipal user,
+        ISender mediatr,
+        IHubContext<ChatHub> hubContext) =>
     {
         var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var currentUserId))
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
             return Results.Unauthorized();
 
-        var query = new GetAllUsersQuery(currentUserId);
-        var result = await mediatr.Send(query);
+        try
+        {
+            var getChatMembersQuery = new GetChatMembersQuery(chatId, userId);
+            var members = await mediatr.Send(getChatMembersQuery);
+            var memberIds = members.Select(m => m.Id).ToList();
 
-        return Results.Ok(result);
+            var command = new LeaveChatCommand(chatId, userId);
+            await mediatr.Send(command);
+
+            await hubContext.Clients.Users(memberIds.Select(id => id.ToString()))
+                .SendAsync("UserLeave", new { ChatId = chatId, UserId = userId });
+
+            return Results.Ok("Вы успешно покинули чат.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(ex.Message);
+        }
     })
-    .WithTags("Users")
-    .WithName("GetAllUsers")
-    .WithDescription("Возвращает всех пользователей")
+    .WithTags("Chats")
+    .WithName("LeaveChat")
+    .WithDescription("Позволяет участнику покинуть чат")
     .RequireAuthorization();
+    #endregion
+
+    #region Messages
+    //endpoint - получение истории сообщений
+    app.MapGet("/chats/{chatId:guid}/messages", async (
+        Guid chatId,
+        int limit,
+        Guid? beforeMessageId,
+        ClaimsPrincipal user,
+        ISender mediatr) =>
+    {
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        try
+        {
+            var command = new GetMessageHistoryQuery(chatId, userId, limit, beforeMessageId);
+            var result = await mediatr.Send(command);
+
+            return Results.Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
+    })
+    .WithTags("Messages")
+    .WithName("GetMessageHistory")
+    .WithDescription("Возращает архив сообщений с пагинацией")
+    .RequireAuthorization();
+    #endregion
+    
     #endregion
 
     app.UseHttpsRedirection();

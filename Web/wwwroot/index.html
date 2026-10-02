@@ -172,6 +172,9 @@
                                 </svg>
                             </button>
                             <div class="font-bold text-slate-800 text-base md:text-lg truncate flex-1" id="currentChatTitle">Название чата</div>
+
+                            <button onclick="leaveChat()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg text-sm">Выйти</button>
+                            <button onclick="deleteChat()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-lg text-sm">Удалить чат</button>
                         </div>
 
                         <div class="flex flex-1 overflow-hidden relative">
@@ -236,7 +239,6 @@
     </div>
 
     <script>
-        // ВСЕ ТВОИ ОРИГИНАЛЬНЫЕ ПЕРЕМЕННЫЕ СОХРАНЕНЫ
         let connection = null;
         let jwtToken = "";
         let currentUserId = null;
@@ -248,7 +250,6 @@
 
         let isActiveChatDirect = false;
 
-        // Вспомогательные функции управления мобильным сайдбаром чатов
         function toggleMobileSidebar(open) {
             const sidebar = document.getElementById("chatsSidebar");
             const overlay = document.getElementById("mobileSidebarOverlay");
@@ -328,6 +329,8 @@
                 currentUserId = payload.sub;
                 currentUsername = payload.unique_name;
 
+                history.replaceState(null, '', window.location.href);
+
                 console.log("JWT получен успешно!");
                 await initializeApp();
             } catch (err) {
@@ -392,6 +395,30 @@
                                 statusIndicator.classList.remove('online');
                                 statusIndicator.classList.add('offline');
                             }
+                        }
+                    }
+                });
+
+                connection.on("ChatDeleted", (data) => {
+                    const chatId = data.chatId;
+                    const item = document.getElementById(`chat-item-${chatId}`);
+                    if (item) {
+                        item.remove();
+                        if (activeChatId === chatId) {
+                            document.getElementById("activeChatArea").style.display = "none";
+                            document.getElementById("noChatSelected").style.display = "flex";
+                            activeChatId = null;
+                        }
+                    }
+                });
+
+                connection.on("UserLeave", (data) => {
+                    const chatId = data.chatId;
+                    const item = document.getElementById(`chat-item-${chatId}`);
+                    if (item) {
+                        if (activeChatId === chatId) {
+                            const memberRow = document.querySelector(`#chatMembersContainer [data-member-id="${data.userId}"]`);
+                            memberRow.style.display = "none";
                         }
                     }
                 });
@@ -913,6 +940,56 @@
             } catch (err) {
                 console.error(err);
                 alert(err.message);
+            }
+        }
+
+        async function leaveChat() {
+            if (!activeChatId) return;
+            if (!confirm("Вы уверены, что хотите покинуть этот чат?")) return;
+
+            try {
+                const response = await fetch(`/chats/${activeChatId}/leave`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(err);
+                }
+
+                alert("Вы покинули чат.");
+                await loadUserChats();
+                document.getElementById("activeChatArea").style.display = "none";
+                document.getElementById("noChatSelected").style.display = "flex";
+                activeChatId = null;
+            } catch (err) {
+                alert("Ошибка: " + err.message);
+            }
+        }
+
+        async function deleteChat() {
+            if (!activeChatId) return;
+            if (!confirm("Удаление чата удалит все сообщения для всех участников. Продолжить?")) return;
+
+            try {
+                const response = await fetch(`/chats/${activeChatId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(err);
+                }
+
+                alert("Чат удалён.");
+                await loadUserChats();
+                document.getElementById("activeChatArea").style.display = "none";
+                document.getElementById("noChatSelected").style.display = "flex";
+                activeChatId = null;
+            } catch (err) {
+                alert("Ошибка: " + err.message);
             }
         }
 
