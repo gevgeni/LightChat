@@ -4,18 +4,22 @@ using FluentAssertions;
 using LightChat.Core.Entities;
 using LightChat.Core.Repositories;
 using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Interfaces;
 
 namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class CreateChatCommandHandlerTests
     {
         private readonly Mock<IChatRepository> _chatRepositoryMock = new();
+        private readonly Mock<ICacheInvalidator> _cacheInvalidator = new();
 
         private readonly CreateChatHandler _handler;
 
         public CreateChatCommandHandlerTests()
         {
-            _handler = new CreateChatHandler(_chatRepositoryMock.Object);
+            _handler = new CreateChatHandler(
+                _chatRepositoryMock.Object,
+                _cacheInvalidator.Object);
         }
 
         [Fact]
