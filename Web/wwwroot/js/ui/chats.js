@@ -75,6 +75,7 @@ export async function selectChat(chatId, chatName) {
 
     state.oldestMessageId = null;
     state.hasMoreMessages = true;
+    state.isLoadingMessages = false;
     document.getElementById("messagesList").innerHTML = "";
 
     document.getElementById("noChatSelected").style.display = "none";

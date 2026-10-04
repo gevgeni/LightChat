@@ -20,7 +20,7 @@ async function request(method, url, body = null) {
     }
 
     if (!response.ok) {
-        const test = await response.text();
+        const text = await response.text();
         throw new ApiError(text || `HTTP ${response.status}`, response.status);
     }
 

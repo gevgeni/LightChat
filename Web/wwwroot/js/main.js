@@ -9,7 +9,7 @@ import { registerHandlers } from './signalr.js';
 import { loginAndLoadApp, registerAccount, logout, toggleAuthMode, initializeFromSavedToken, registerInitCallback } from './auth.js';
 
 import { loadUserChats, selectChat, handleChatInvitation, handleChatDeleted, handleUserLeave } from './ui/chats.js';
-import { loadMoreMessages, sendMessage, handleReceiveMessage, handleMessagesMarkedAsRead, initializeMessagesHandlers } from './ui/messages.js';
+import { loadMoreMessages, sendMessage, handleReceiveMessage, handleMessagesMarkedAsRead, handleUserIsTyping, initializeMessagesHandlers } from './ui/messages.js';
 import { loadChatMembers, handleUserStatusChanged } from './ui/members.js';
 import { toggleMobileSidebar, initializeMobileHandlers } from './ui/mobile.js';
 import {
@@ -37,7 +37,8 @@ async function initializeApp() {
             onMessagesMarkedAsRead: handleMessagesMarkedAsRead,
             onChatInvitation: handleChatInvitation,
             onChatDeleted: handleChatDeleted,
-            onUserLeave: handleUserLeave
+            onUserLeave: handleUserLeave,
+            onUserIsTyping: handleUserIsTyping
         });
 
         // 3. Показываем основной интерфейс
@@ -97,3 +98,13 @@ window.closeAddMemberModal = closeAddMemberModal;
 window.submitAddMember = submitAddMember;
 window.leaveChat = leaveChat;
 window.deleteChat = deleteChat;
+
+document.addEventListener('click', () => {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume().then(() => ctx.close());
+        console.log('[Audio] AudioContext разблокирован');
+    } catch (e) {
+        console.warn('[Audio] Ошибка разблокировки:', e);
+    }
+}, { once: true });
