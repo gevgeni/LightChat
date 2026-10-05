@@ -12,6 +12,8 @@ namespace LightChat.Core.Tests.Handlers.Users
     {
         private readonly Mock<IUserRepository> _userRepositoryMock = new();
         private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+        private readonly Mock<ICacheInvalidator> _cacheInvalidator = new();
+
 
         private readonly UserRegisterHandler _handler;
 
@@ -19,7 +21,8 @@ namespace LightChat.Core.Tests.Handlers.Users
         {
             _handler = new UserRegisterHandler(
                 _userRepositoryMock.Object,
-                _passwordHasherMock.Object
+                _passwordHasherMock.Object,
+                _cacheInvalidator.Object
             );
         }
 

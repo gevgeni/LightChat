@@ -1,21 +1,22 @@
-﻿using Moq;
-
-using LightChat.Core.Repositories;
-using LightChat.Core.Features.Chats.CreateChat;
+﻿using FluentAssertions;
 using LightChat.Core.Entities;
-using FluentAssertions;
+using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Interfaces;
+using LightChat.Core.Repositories;
+using Moq;
 
 namespace LightChat.Core.Tests.Handlers.Chats
 {
     public class CreateDirectChatCommandHandlerTests
     {
         private readonly Mock<IChatRepository> _chatRepositoryMock = new();
+        private readonly Mock<ICacheInvalidator> _cacheInvalidator = new();
 
         private readonly CreateDirectChatHandler _handler;
 
         public CreateDirectChatCommandHandlerTests()
         {
-            _handler = new CreateDirectChatHandler(_chatRepositoryMock.Object);
+            _handler = new CreateDirectChatHandler(_chatRepositoryMock.Object, _cacheInvalidator.Object);
         }
 
         [Fact]
