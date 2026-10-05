@@ -1,9 +1,9 @@
-﻿using System.Security.Claims;
-
-using Microsoft.AspNetCore.SignalR;
+﻿using MassTransit;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-
+using Microsoft.AspNetCore.SignalR;
 using LightChat.Core.Entities;
+using LightChat.Core.Events;
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
 
@@ -21,16 +21,28 @@ namespace LightChat.Web.Hubs
 
         private readonly IUserStatusManager _statusManager;
 
+        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly ILogger<ChatHub> _logger;
+
         /// <summary>
         /// Основной конструктов ChatHub
         /// </summary>
-        public ChatHub(IMessageRepository messageRepository, IChatRepository chatRepository, IUserRepository userRepository, IUserStatusManager statusManager)
+        public ChatHub(
+            IMessageRepository messageRepository, 
+            IChatRepository chatRepository, 
+            IUserRepository userRepository, 
+            IUserStatusManager statusManager,
+            IPublishEndpoint publishEndpoint,
+            ILogger<ChatHub> logger)
         {
             _messageRepository = messageRepository;
             _chatRepository = chatRepository;
             _userRepository = userRepository;
 
             _statusManager = statusManager;
+
+            _publishEndpoint = publishEndpoint;
+            _logger = logger;
         }
 
         /// <summary>
@@ -109,6 +121,22 @@ namespace LightChat.Web.Hubs
                 sentAt = message.SentAt,
                 isRead = false
             });
+
+            try
+            {
+                await _publishEndpoint.Publish(new MessageSentEvent(
+                    message.Id,
+                    message.ChatId,
+                    message.SenderId,
+                    username,
+                    message.Text,
+                    message.SentAt
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.ToString());
+            }
         }
 
         /// <summary>
