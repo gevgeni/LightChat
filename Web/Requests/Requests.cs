@@ -5,4 +5,5 @@
     public record AddMemberRequest(Guid UserId);
     public record LoginRequest(string Username, string Password);
     public record CreateDirectChatRequest(Guid TargetUserId);
+    public record SubscribePushRequest(string Endpoint, string P256dh, string Auth);
 }

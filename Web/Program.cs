@@ -1,33 +1,35 @@
-using System.Security.Claims;
-
-using Serilog;
-using MediatR;
 using FluentValidation;
-using StackExchange.Redis;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR;
-
-using LightChat.Web.Hubs;
-using LightChat.Web.Services;
-using LightChat.Web.Requests;
-using LightChat.Web.Middlwares;
-using LightChat.Web.Extensions;
-using LightChat.Infrastructure.Services;
-using LightChat.Infrastructure.Security;
-using LightChat.Infrastructure.Persistence;
-using LightChat.Infrastructure.Repositories;
+using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Features.Chats.GetChatMembers;
+using LightChat.Core.Features.Chats.GetUserChats;
+using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Notifications.SubscribePush;
+using LightChat.Core.Features.Users.GetAllUsers;
+using LightChat.Core.Features.Users.UserJwtAuthorize;
+using LightChat.Core.Features.Users.UserRegister;
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Chats.LeaveChat;
-using LightChat.Core.Features.Chats.CreateChat;
 using LightChat.Core.Features.Chats.DeleteChat;
-using LightChat.Core.Features.Chats.GetUserChats;
-using LightChat.Core.Features.Chats.AddChatMember;
-using LightChat.Core.Features.Chats.GetChatMembers;
-using LightChat.Core.Features.Users.GetAllUsers;
-using LightChat.Core.Features.Users.UserRegister;
-using LightChat.Core.Features.Users.UserJwtAuthorize;
-using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Chats.LeaveChat;
+using LightChat.Infrastructure.Consumers;
+using LightChat.Infrastructure.Persistence;
+using LightChat.Infrastructure.Repositories;
+using LightChat.Infrastructure.Security;
+using LightChat.Infrastructure.Services;
+using LightChat.Web.Extensions;
+using LightChat.Web.Hubs;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Requests;
+using LightChat.Web.Services;
+using MassTransit;
+using MediatR;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using StackExchange.Redis;
+using System.Security.Claims;
+using WebPush;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -96,6 +98,22 @@ try
     });
     #endregion
 
+    builder.Services.AddMassTransit(x =>
+    {
+        x.AddConsumer<MessageSentConsumer>();
+
+        x.UsingRabbitMq((context, cfg) =>
+        {
+            cfg.Host("localhost", "/", h =>
+            {
+                h.Username("guest");
+                h.Password("guest");
+            });
+
+            cfg.ConfigureEndpoints(context);
+        });
+    });
+
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
@@ -119,6 +137,7 @@ try
     builder.Services.AddScoped<IChatRepository, EfChatRepository>();
     builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
     builder.Services.AddScoped<EfUserRepository>();
+    builder.Services.AddScoped<IPushSubscriptionRepository, UserPushSubscriptionRepository>();
     builder.Services.AddScoped<IUserRepository>(provider =>
         new CachedUserRepository(
             provider.GetRequiredService<EfUserRepository>(),
@@ -126,10 +145,14 @@ try
         ));
     #endregion
 
+    #region Регистрация отдельных сервисов
     builder.Services.AddSingleton<IUserStatusManager, UserStatusManager>();
     builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
     builder.Services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
     builder.Services.AddSingleton<ICacheInvalidator, RedisCacheInvalidator>();
+
+    builder.Services.AddSingleton<WebPushClient>();
+    #endregion
 
     #region JWT авторизация
     builder.Services.AddWebAuthentication(builder.Configuration);
@@ -177,6 +200,7 @@ try
         });
     }
     #endregion
+
 
     #region Minimal API Эндпоинты
 
@@ -329,7 +353,7 @@ try
     .WithTags("Chats")
     .WithName("DeleteChat")
     .WithDescription("Удаляет чат полностью (для всех участников)")
-    .RequireAuthorization(); ;
+    .RequireAuthorization();
 
     //endpoint - получение всех чатов пользователя
     app.MapGet("/chats", async (ClaimsPrincipal user, ISender mediatr) =>
@@ -482,7 +506,42 @@ try
     .WithDescription("Возращает архив сообщений с пагинацией")
     .RequireAuthorization();
     #endregion
-    
+
+    #region Notifications
+    //endpoint - подписка на push уведомления
+    app.MapPost("/notifications/subscribe", async (
+        SubscribePushRequest request,
+        ClaimsPrincipal user,
+        ISender mediatr) =>
+    {
+        var nameIdentifier = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier) || !Guid.TryParse(nameIdentifier, out var userId))
+            return Results.Unauthorized();
+
+        var command = new SubscribePushCommand(userId, request.Endpoint, request.P256dh, request.Auth);
+        await mediatr.Send(command);
+
+        return Results.Ok();
+    })
+    .WithTags("Notifications")
+    .WithName("CreateNewSubscription")
+    .WithDescription("Создаёт новую подписку")
+    .RequireAuthorization();
+
+    //endpoint - получение публичного VAPID ключа для клиента
+    app.MapGet("/notifications/vapid-public-key", (IConfiguration config) =>
+    {
+        var publicKey = config["Vapid:PublicKey"];
+        if (string.IsNullOrEmpty(publicKey))
+            return Results.Problem("VAPID PublicKey не настроен на сервере.");
+        return Results.Ok(new { publicKey });
+    })
+    .WithTags("Notifications")
+    .WithName("GetVapidPublicKey")
+    .WithDescription("Возвращает публичный VAPID ключ для Web Push подписки")
+    .AllowAnonymous(); // ключ публичный — авторизация не нужна
+    #endregion
+
     #endregion
 
     app.UseHttpsRedirection();

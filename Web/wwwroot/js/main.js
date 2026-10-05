@@ -18,6 +18,7 @@ import {
     openAddMemberModal, closeAddMemberModal, submitAddMember,
     leaveChat, deleteChat
 } from './ui/modals.js';
+import { handleEnablePush, updatePushButton, initializePushNotifications } from './ui/push.js';
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ====================
 
@@ -49,7 +50,10 @@ async function initializeApp() {
         initializeMobileHandlers();
         initializeMessagesHandlers();
 
-        // 5. Загружаем список чатов
+        // 5. Push-уведомления
+        await initializePushNotifications();
+
+        // 6. Загружаем список чатов
         await loadUserChats();
 
         console.log("[App] Инициализация завершена");
@@ -98,6 +102,9 @@ window.closeAddMemberModal = closeAddMemberModal;
 window.submitAddMember = submitAddMember;
 window.leaveChat = leaveChat;
 window.deleteChat = deleteChat;
+
+window.handleEnablePush = handleEnablePush;
+window.updatePushButton = updatePushButton;
 
 document.addEventListener('click', () => {
     try {

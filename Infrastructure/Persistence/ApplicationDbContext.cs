@@ -3,17 +3,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LightChat.Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-        }
-
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Chat> Chats { get; set; } = null!;
         public DbSet<ChatMember> ChatMembers { get; set; } = null!;
         public DbSet<Message> Messages { get; set; } = null!;
+        public DbSet<UserPushSubscription> PushSubscriptions { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +69,33 @@ namespace LightChat.Infrastructure.Persistence
                 entity.Property(u => u.Email)
                     .IsRequired()
                     .HasMaxLength(100);
+            });
+
+            modelBuilder.Entity<UserPushSubscription>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+
+                entity.Property(s => s.Endpoint)
+                    .IsRequired()
+                    .HasMaxLength(2048);
+
+                entity.HasIndex(s => s.Endpoint)
+                    .IsUnique();
+
+                entity.Property(s => s.P256dh)
+                    .IsRequired()
+                    .HasMaxLength(512);
+
+                entity.Property(s => s.Auth)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                entity.HasOne(s => s.User)
+                    .WithMany()
+                    .HasForeignKey(s => s.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(s => s.UserId);
             });
         }
     }

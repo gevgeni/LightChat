@@ -4,9 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LightChat Minimal Client</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#4f46e5">
+
+    <!-- Libraries -->
     <script src="/js/tailwind.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    <!-- Styles -->
     <link rel="stylesheet" href="/css/styles.css" />
+
+    <!-- Push notifications -->
+    <script src="/js/push-notifications.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen w-screen flex items-center justify-center overflow-hidden antialiased">
 
@@ -68,8 +82,14 @@
                     <div class="chats-list flex-1 overflow-y-auto custom-scrollbar dark-scrollbar divide-y divide-slate-700/50" id="chatsListContainer">
                     </div>
 
-                    <div class="p-4 bg-slate-900 border-t border-slate-700">
-                        <button onclick="logout()" class="bg-rose-600 hover:bg-rose-500 text-white w-full py-2.5 rounded-xl font-medium transition text-sm shadow">Выйти из аккаунта</button>
+                    <div class="p-4 bg-slate-900 border-t border-slate-700 flex flex-col gap-2">
+                        <button id="pushNotifyBtn" onclick="handleEnablePush()"
+                                class="bg-slate-700 hover:bg-slate-600 text-white w-full py-2.5 rounded-xl font-medium transition text-sm shadow">
+                            🔔 Включить уведомления
+                        </button>
+                        <button onclick="logout()" class="bg-rose-600 hover:bg-rose-500 text-white w-full py-2.5 rounded-xl font-medium transition text-sm shadow">
+                            Выйти из аккаунта
+                        </button>
                     </div>
                 </div>
 
