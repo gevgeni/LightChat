@@ -18,7 +18,14 @@ import {
     openAddMemberModal, closeAddMemberModal, submitAddMember,
     leaveChat, deleteChat
 } from './ui/modals.js';
-import { handleEnablePush, updatePushButton, initializePushNotifications } from './ui/push.js';
+import {
+    handleEnablePush,
+    updatePushButton,
+    initializePushNotifications,
+    consumeOpenChatFromUrl,
+    setupServiceWorkerListener,
+    tryOpenPendingChat
+} from './ui/push.js';
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ====================
 
@@ -56,6 +63,9 @@ async function initializeApp() {
         // 6. Загружаем список чатов
         await loadUserChats();
 
+        // 7. Если был отложен чат (из push) — открываем его
+        await tryOpenPendingChat();
+
         console.log("[App] Инициализация завершена");
     } catch (err) {
         console.error("[App] Ошибка инициализации:", err);
@@ -65,6 +75,10 @@ async function initializeApp() {
 
 // Регистрируем callback в auth.js
 registerInitCallback(initializeApp);
+
+// Парсим URL на наличие ?openChat=<id> и слушаем SW (до инициализации)
+consumeOpenChatFromUrl();
+setupServiceWorkerListener();
 
 // ==================== СТАРТ ПРИЛОЖЕНИЯ ====================
 

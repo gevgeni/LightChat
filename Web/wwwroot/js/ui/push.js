@@ -1,10 +1,11 @@
 ﻿// js/ui/push.js
 
 import { state } from '../state.js';
+import { loadUserChats, selectChat } from './chats.js';
+import { toggleMobileSidebar } from './mobile.js';
 
-/**
- * Клик по кнопке "🔔 Включить уведомления"
- */
+// ==================== КНОПКА ====================
+
 export async function handleEnablePush() {
     const btn = document.getElementById("pushNotifyBtn");
     if (!btn) return;
@@ -12,7 +13,6 @@ export async function handleEnablePush() {
     btn.disabled = true;
     btn.innerText = "⏳ Подписка...";
 
-    // push-notifications.js подключён как обычный <script>, функция глобальная
     const ok = await window.enablePushNotifications(state.jwtToken);
 
     btn.disabled = false;
@@ -23,9 +23,6 @@ export async function handleEnablePush() {
     }
 }
 
-/**
- * Обновить внешний вид кнопки в зависимости от состояния подписки
- */
 export function updatePushButton(subscribed) {
     const btn = document.getElementById("pushNotifyBtn");
     if (!btn) return;
@@ -48,12 +45,6 @@ export function updatePushButton(subscribed) {
     }
 }
 
-/**
- * Инициализация push после логина:
- * 1. Регистрируем Service Worker
- * 2. Если разрешение уже дано — подписываемся
- * 3. Обновляем кнопку
- */
 export async function initializePushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.warn("[Push] Не поддерживается этим браузером");
@@ -75,4 +66,70 @@ export async function initializePushNotifications() {
     } else {
         updatePushButton(false);
     }
+}
+
+// ==================== DEEP LINK (открытие чата из push) ====================
+
+export function consumeOpenChatFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const chatId = params.get('openChat');
+    if (!chatId) {
+        console.log('[Push] ?openChat не найден в URL');
+        return;
+    }
+
+    state.pendingChatToOpen = chatId;
+    console.log('[Push] Отложен чат для открытия:', chatId);
+
+    // Очищаем URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('openChat');
+    const clean = url.pathname + (url.search ? url.search : '') + url.hash;
+    window.history.replaceState({}, '', clean);
+}
+
+export function setupServiceWorkerListener() {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'openChat' && event.data.chatId) {
+            console.log('[Push] SW передал чат:', event.data.chatId);
+            state.pendingChatToOpen = event.data.chatId;
+            tryOpenPendingChat();
+        }
+    });
+}
+
+export async function tryOpenPendingChat() {
+    console.log('[Push] tryOpenPendingChat, pending =', state.pendingChatToOpen);
+
+    if (!state.pendingChatToOpen) return false;
+
+    if (!state.jwtToken || !state.currentUserId) {
+        console.log('[Push] Ожидание авторизации для открытия чата:', state.pendingChatToOpen);
+        return false;
+    }
+
+    const chatId = state.pendingChatToOpen;
+    let item = document.getElementById(`chat-item-${chatId}`);
+
+    if (!item) {
+        console.log('[Push] Чат не найден в DOM, обновляем список чатов');
+        await loadUserChats();
+        item = document.getElementById(`chat-item-${chatId}`);
+    }
+
+    if (!item) {
+        console.warn('[Push] Чат недоступен:', chatId);
+        state.pendingChatToOpen = null;
+        return false;
+    }
+
+    const name = item.querySelector('.chat-item-name')?.innerText || 'Чат';
+    console.log('[Push] Открываем чат:', chatId, name);
+    await selectChat(chatId, name);
+    toggleMobileSidebar(false);
+    state.pendingChatToOpen = null;
+    console.log('[Push] Чат открыт:', chatId);
+    return true;
 }
