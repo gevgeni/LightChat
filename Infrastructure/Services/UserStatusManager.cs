@@ -71,5 +71,12 @@ namespace LightChat.Web.Services
                     _redisDb.KeyDelete(keys);
             }
         }
+
+        public async Task<bool> IsUserOnlineAsync(Guid userId)
+        {
+            var userKey = string.Format(UserConnectionsPrefix, userId);
+            var length = await _redisDb.SetLengthAsync(userKey);
+            return length > 0;
+        }
     }
 }

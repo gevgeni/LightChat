@@ -6,48 +6,44 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using LightChat.Core.Events;
 using LightChat.Core.Repositories;
+using LightChat.Core.Interfaces;
 
 namespace LightChat.Infrastructure.Consumers
 {
     public class MessageSentConsumer : IConsumer<MessageSentEvent>
     {
         private readonly WebPushClient _webPushClient;
-        private readonly IConnectionMultiplexer _redis;
         private readonly IPushSubscriptionRepository _pushRepo;
-        private readonly IConfiguration _config;
+        private readonly IUserStatusManager _statusManager;
+        private readonly VapidDetails _vapidDetails;
         private readonly ILogger<MessageSentConsumer> _logger;
 
         public MessageSentConsumer(
             WebPushClient webPushClient,
-            IConnectionMultiplexer redis,
             IPushSubscriptionRepository pushRepo,
+            IUserStatusManager statusManager,
             IConfiguration config,
             ILogger<MessageSentConsumer> logger)
         {
             _webPushClient = webPushClient;
-            _redis = redis;
             _pushRepo = pushRepo;
-            _config = config;
+            _statusManager = statusManager;
             _logger = logger;
+
+            var vapidSubject = config["Vapid:Subject"] ?? "";
+            var publicKey = config["Vapid:PublicKey"];
+            var privateKey = config["Vapid:PrivateKey"];
+
+            if (string.IsNullOrEmpty(publicKey) || string.IsNullOrEmpty(privateKey))
+                throw new InvalidOperationException(
+                    "VAPID ключи не настроены в appsettings.json");
+
+            _vapidDetails = new VapidDetails(vapidSubject, publicKey, privateKey);
         }
 
         public async Task Consume(ConsumeContext<MessageSentEvent> context)
         {
             var message = context.Message;
-
-            var vapidSubject = _config["Vapid:Subject"] ?? "";
-            var publicKey = _config["Vapid:PublicKey"];
-            var privateKey = _config["Vapid:PrivateKey"];
-
-            if (string.IsNullOrEmpty(publicKey) || string.IsNullOrEmpty(privateKey))
-            {
-                _logger.LogError("VAPID ключи не настроены в appsettings.json. Отмена отправки Push.");
-                return;
-            }
-
-            var vapidDetails = new VapidDetails(vapidSubject, publicKey, privateKey);
-
-            var db = _redis.GetDatabase();
 
             var recipientIds = await _pushRepo.GetChatRecipientIdsAsync(message.ChatId, message.SenderId);
 
@@ -57,9 +53,7 @@ namespace LightChat.Infrastructure.Consumers
 
             foreach (var recipientId in recipientIds)
             {
-                var connectionsCount = await db.SetLengthAsync($"chat:user:{recipientId}:connections");
-
-                if (connectionsCount > 0)
+                if (await _statusManager.IsUserOnlineAsync(recipientId))
                 {
                     _logger.LogInformation("Пользователь {UserId} в сети. Push не требуется.", recipientId);
                     continue;
@@ -80,7 +74,7 @@ namespace LightChat.Infrastructure.Consumers
                     try
                     {
                         var pushSubscription = new PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
-                        await _webPushClient.SendNotificationAsync(pushSubscription, payLoad, vapidDetails);
+                        await _webPushClient.SendNotificationAsync(pushSubscription, payLoad, _vapidDetails);
 
                         _logger.LogInformation("Push-уведомление успешно отправлено пользователю {UserId}", recipientId);
                     }
