@@ -1,5 +1,4 @@
 using FluentValidation;
-using RabbitMQ.Client;
 using HealthChecks.UI.Client;
 using LightChat.Core.Features.Chats.AddChatMember;
 using LightChat.Core.Features.Chats.CreateChat;
@@ -113,10 +112,14 @@ try
 
         x.UsingRabbitMq((context, cfg) =>
         {
-            cfg.Host("localhost", "/", h =>
+            var rabbitHost = builder.Configuration["RabbitMq:Host"] ?? "localhost";
+            var rabbitUser = builder.Configuration["RabbitMq:Username"] ?? "guest";
+            var rabbitPass = builder.Configuration["RabbitMq:Password"] ?? "guest";
+
+            cfg.Host(rabbitHost, "/", h =>
             {
-                h.Username("guest");
-                h.Password("guest");
+                h.Username(rabbitUser);
+                h.Password(rabbitPass);
             });
 
             cfg.ConfigureEndpoints(context);
@@ -144,7 +147,12 @@ try
 
     #region Настройка Redis
     var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
-    builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
+    builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    {
+        var options = ConfigurationOptions.Parse(redisConnectionString);
+        options.AbortOnConnectFail = false;
+        return ConnectionMultiplexer.Connect(options);
+    });
 
     builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(CachingBehavior<,>));
     #endregion
@@ -175,15 +183,6 @@ try
 
     builder.Services.AddSingleton<WebPushClient>();
 
-    builder.Services.AddSingleton<IConnection>(sp =>
-    {
-        var factory = new ConnectionFactory
-        {
-            Uri = new Uri("amqp://guest:guest@localhost:5672/"),
-            AutomaticRecoveryEnabled = true
-        };
-        return factory.CreateConnectionAsync().GetAwaiter().GetResult();
-    });
     #endregion
 
     #region JWT авторизация
@@ -197,8 +196,9 @@ try
     app.UseExceptionHandler();
 
     #region Формирование миграций при старте
-    using (var scope = app.Services.CreateScope())
+    if (!app.Environment.IsEnvironment("Testing"))
     {
+        using var scope = app.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await dbContext.Database.MigrateAsync();
 
@@ -604,8 +604,9 @@ try
 
     app.MapHub<ChatHub>("/chatHub");
 
-    using (var scope = app.Services.CreateScope())
+    if (!app.Environment.IsEnvironment("Testing"))
     {
+        using var scope = app.Services.CreateScope();
         var statusManager = scope.ServiceProvider.GetRequiredService<IUserStatusManager>();
         statusManager.ClearAllStatuses();
         Log.Information("Статусы пользователей в Redis успешно очищены при запуске.");
@@ -616,6 +617,7 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "Приложение аварийно завершило работу.");
+    throw;
 }
 finally
 {
