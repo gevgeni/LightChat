@@ -1,42 +1,37 @@
-using LightChat.Core.Features.Chats.LeaveChat;
-using LightChat.Core.Features.Chats.DeleteChat;
-using LightChat.Core.Features.Chats.CreateChat;
-using LightChat.Core.Features.Chats.GetUserChats;
+using FluentValidation;
+using RabbitMQ.Client;
+using HealthChecks.UI.Client;
 using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.CreateChat;
+using LightChat.Core.Features.Chats.DeleteChat;
 using LightChat.Core.Features.Chats.GetChatMembers;
-
+using LightChat.Core.Features.Chats.GetUserChats;
+using LightChat.Core.Features.Chats.LeaveChat;
+using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Notifications.SubscribePush;
 using LightChat.Core.Features.Users.GetAllUsers;
 using LightChat.Core.Features.Users.UserJwtAuthorize;
 using LightChat.Core.Features.Users.UserRegister;
-
-using LightChat.Core.Features.Messages.GetMessageHistory;
-using LightChat.Core.Features.Notifications.SubscribePush;
-
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-
-using LightChat.Infrastructure.Security;
-using LightChat.Infrastructure.Services;
 using LightChat.Infrastructure.Consumers;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-
+using LightChat.Infrastructure.Security;
+using LightChat.Infrastructure.Services;
+using LightChat.Web.Extensions;
 using LightChat.Web.Hubs;
+using LightChat.Web.Middlwares;
 using LightChat.Web.Requests;
 using LightChat.Web.Services;
-using LightChat.Web.Middlwares;
-using LightChat.Web.Extensions;
-
-using WebPush;
-using MediatR;
-using Serilog;
 using MassTransit;
-using FluentValidation;
-using StackExchange.Redis;
-
-using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using StackExchange.Redis;
+using System.Security.Claims;
+using WebPush;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -128,6 +123,19 @@ try
         });
     });
 
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(
+            connectionString: builder.Configuration.GetConnectionString("PostgresConnection")!,
+            name: "postgres",
+            tags: new[] { "db", "ready" })
+        .AddRedis(
+            redisConnectionString: builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379",
+            name: "redis",
+            tags: new[] { "cache", "ready" })
+        .AddRabbitMQ(
+            name: "rabbitmq",
+            tags: new[] { "broker", "ready" });
+
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
     builder.Services.AddProblemDetails();
 
@@ -166,6 +174,16 @@ try
     builder.Services.AddSingleton<ICacheInvalidator, RedisCacheInvalidator>();
 
     builder.Services.AddSingleton<WebPushClient>();
+
+    builder.Services.AddSingleton<IConnection>(sp =>
+    {
+        var factory = new ConnectionFactory
+        {
+            Uri = new Uri("amqp://guest:guest@localhost:5672/"),
+            AutomaticRecoveryEnabled = true
+        };
+        return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+    });
     #endregion
 
     #region JWT авторизация
@@ -555,6 +573,26 @@ try
     .WithDescription("Возвращает публичный VAPID ключ для Web Push подписки")
     .AllowAnonymous(); // ключ публичный — авторизация не нужна
     #endregion
+
+    #endregion
+
+    #region Health Check Эндпоинты
+    // Liveness probe — только «приложение живо» (не проверяет зависимости)
+    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => false  // ничего не проверять, только сам хост
+    });
+    // Readiness probe — все зависимости (БД, Redis, RabbitMQ)
+    app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+    });
+    // Общий эндпоинт
+    app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+    });
 
     #endregion
 
