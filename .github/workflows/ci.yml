@@ -2,16 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.gitignore'
+    branches: [ main, master, develop, 'feature/**' ]
   pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+    branches: [ main, master, develop ]
 
 env:
   DOTNET_NOLOGO: true
@@ -60,7 +53,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
