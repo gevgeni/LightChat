@@ -1,35 +1,42 @@
-using FluentValidation;
-using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.LeaveChat;
+using LightChat.Core.Features.Chats.DeleteChat;
 using LightChat.Core.Features.Chats.CreateChat;
-using LightChat.Core.Features.Chats.GetChatMembers;
 using LightChat.Core.Features.Chats.GetUserChats;
-using LightChat.Core.Features.Messages.GetMessageHistory;
-using LightChat.Core.Features.Notifications.SubscribePush;
+using LightChat.Core.Features.Chats.AddChatMember;
+using LightChat.Core.Features.Chats.GetChatMembers;
+
 using LightChat.Core.Features.Users.GetAllUsers;
 using LightChat.Core.Features.Users.UserJwtAuthorize;
 using LightChat.Core.Features.Users.UserRegister;
+
+using LightChat.Core.Features.Messages.GetMessageHistory;
+using LightChat.Core.Features.Notifications.SubscribePush;
+
 using LightChat.Core.Interfaces;
 using LightChat.Core.Repositories;
-using LightChat.Core.Features.Chats.DeleteChat;
-using LightChat.Core.Features.Chats.LeaveChat;
+
+using LightChat.Infrastructure.Security;
+using LightChat.Infrastructure.Services;
 using LightChat.Infrastructure.Consumers;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Infrastructure.Repositories;
-using LightChat.Infrastructure.Security;
-using LightChat.Infrastructure.Services;
-using LightChat.Web.Extensions;
+
 using LightChat.Web.Hubs;
-using LightChat.Web.Middlwares;
 using LightChat.Web.Requests;
 using LightChat.Web.Services;
-using MassTransit;
+using LightChat.Web.Middlwares;
+using LightChat.Web.Extensions;
+
+using WebPush;
 using MediatR;
+using Serilog;
+using MassTransit;
+using FluentValidation;
+using StackExchange.Redis;
+
+using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Serilog;
-using StackExchange.Redis;
-using System.Security.Claims;
-using WebPush;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -100,6 +107,13 @@ try
 
     builder.Services.AddMassTransit(x =>
     {
+        x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
+        {
+            o.UsePostgres();
+            o.UseBusOutbox();
+            o.QueryDelay = TimeSpan.FromSeconds(1);
+        });
+
         x.AddConsumer<MessageSentConsumer>();
 
         x.UsingRabbitMq((context, cfg) =>
@@ -561,7 +575,7 @@ try
 
     app.Run();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "Приложение аварийно завершило работу.");
 }

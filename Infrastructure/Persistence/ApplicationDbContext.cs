@@ -1,4 +1,6 @@
 ﻿using LightChat.Core.Entities;
+using MassTransit;
+using MassTransit.EntityFrameworkCoreIntegration;
 using Microsoft.EntityFrameworkCore;
 
 namespace LightChat.Infrastructure.Persistence
@@ -10,6 +12,10 @@ namespace LightChat.Infrastructure.Persistence
         public DbSet<ChatMember> ChatMembers { get; set; } = null!;
         public DbSet<Message> Messages { get; set; } = null!;
         public DbSet<UserPushSubscription> PushSubscriptions { get; set; } = null!;
+
+        public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
+        public DbSet<OutboxState> OutboxStates { get; set; } = null!;
+        public DbSet<InboxState> InboxStates { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -97,6 +103,10 @@ namespace LightChat.Infrastructure.Persistence
 
                 entity.HasIndex(s => s.UserId);
             });
+
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
         }
     }
 }

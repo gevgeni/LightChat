@@ -109,18 +109,7 @@ namespace LightChat.Web.Hubs
                 SentAt = DateTime.UtcNow
             };
 
-            await _messageRepository.SaveAsync(message);
-
-            await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", new
-            {
-                id = message.Id,
-                chatId = message.ChatId,
-                senderId = message.SenderId,
-                senderUsername = username,
-                text = message.Text,
-                sentAt = message.SentAt,
-                isRead = false
-            });
+            await _messageRepository.AddAsync(message);
 
             try
             {
@@ -137,6 +126,19 @@ namespace LightChat.Web.Hubs
             {
                 _logger.LogError(ex.ToString());
             }
+
+            await _messageRepository.SaveChangesAsync();
+
+            await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", new
+            {
+                id = message.Id,
+                chatId = message.ChatId,
+                senderId = message.SenderId,
+                senderUsername = username,
+                text = message.Text,
+                sentAt = message.SentAt,
+                isRead = false
+            });
         }
 
         /// <summary>
