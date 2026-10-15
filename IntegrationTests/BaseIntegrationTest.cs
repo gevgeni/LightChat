@@ -1,7 +1,12 @@
 ﻿using LightChat.Core.Features.Users.UserJwtAuthorize;
 using LightChat.Infrastructure.Persistence;
 using LightChat.Web.Requests;
+
 using Microsoft.EntityFrameworkCore;
+
+using Npgsql;
+using Respawn;
+using Respawn.Graph;
 
 namespace LightChat.IntegrationTests
 {
@@ -9,17 +14,57 @@ namespace LightChat.IntegrationTests
     public abstract class BaseIntegrationTest
     {
         protected readonly HttpClient Client;
-        protected readonly IServiceScope Scope;
-        protected readonly ApplicationDbContext DbContext;
+        private readonly CustomWebApplicationFactory Factory;
         private readonly IServiceScopeFactory _scopeFactory;
-        
+
+        private static Respawner? _respawner;
+        private static readonly SemaphoreSlim _respawnerLock = new(1, 1);
 
         protected BaseIntegrationTest(CustomWebApplicationFactory factory)
         {
+            Factory = factory;
             _scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
             Client = factory.CreateClient();
-            Scope = factory.Services.CreateScope();
-            DbContext = Scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        }
+
+        public Task InitializeAsync() => Task.CompletedTask;
+
+        public async Task DisposeAsync()
+        {
+            var respawner = await GetRespawnerAsync();
+
+            await using var conn = new NpgsqlConnection(Factory.DbConnectionString);
+            await conn.OpenAsync();
+            await respawner.ResetAsync(conn);
+        }
+
+        private async Task<Respawner> GetRespawnerAsync()
+        {
+            if (_respawner is not null)
+                return _respawner;
+
+            await _respawnerLock.WaitAsync();
+            try
+            {
+                if (_respawner is not null)
+                    return _respawner;
+
+                await using var conn = new NpgsqlConnection(Factory.DbConnectionString);
+                await conn.OpenAsync();
+
+                _respawner = await Respawner.CreateAsync(conn, new RespawnerOptions
+                {
+                    DbAdapter = DbAdapter.Postgres,
+                    SchemasToInclude = new[] { "public" },
+                    TablesToIgnore = new Table[] { "__EFMigrationsHistory" }
+                });
+
+                return _respawner;
+            }
+            finally
+            {
+                _respawnerLock.Release();
+            }
         }
 
         protected async Task ExecuteDbContextAsync(Func<ApplicationDbContext, Task> action) 

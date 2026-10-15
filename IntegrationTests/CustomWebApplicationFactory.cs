@@ -3,10 +3,7 @@
 using Testcontainers.PostgreSql;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace LightChat.IntegrationTests
 {
@@ -18,13 +15,15 @@ namespace LightChat.IntegrationTests
             .WithPassword("postgres")
             .Build();
 
+        public string DbConnectionString => _dbContainer.GetConnectionString();
+
         public async Task InitializeAsync()
         {
             await _dbContainer.StartAsync();
 
             using var scope = Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Database.EnsureCreated();
+            await db.Database.MigrateAsync();
         }
 
         // ВАЖНО: этот метод вызывается ДО запуска Program.Main.
