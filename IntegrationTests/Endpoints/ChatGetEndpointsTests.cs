@@ -95,5 +95,27 @@ namespace LightChat.IntegrationTests.Endpoints
             result.Should().Contain(m => m.Id == userId);
             result.Should().Contain(m => m.Id == companionId);
         }
+
+        [Fact]
+        public async Task GetChatMembers_Should_Forbid_When_UserIsNotMember()
+        {
+            // Arrange: user1 создаёт чат, user2 не состоит в нём
+            var (user1Token, _) = await RegisterAndLoginAsync("owner_user", "owner@chat.com");
+            var (user2Token, _) = await RegisterAndLoginAsync("outsider_user", "outsider@chat.com");
+
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+            var createResp = await Client.PostAsJsonAsync("/chats", new CreateChatRequest("private_chat"));
+            var chat = await createResp.Content.ReadFromJsonAsync<ChatResultDto>();
+
+            // Прогреваем кэш от имени user1
+            var warmUp = await Client.GetAsync($"/chats/{chat!.Id}/members");
+            warmUp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // Теперь стучимся от имени user2 — должен получить 403, а не данные из кэша
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+            var response = await Client.GetAsync($"/chats/{chat.Id}/members");
+
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
     }
 }
