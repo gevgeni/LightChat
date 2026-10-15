@@ -81,7 +81,7 @@ LightChat/
 
 ## Запуск проекта (локально)
 
-### 1. Требования
+### Требования
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
