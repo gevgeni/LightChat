@@ -19,7 +19,3 @@ IntegrationTests/
 docs/
 logs/
 test-results/
-
-Dockerfile
-docker-compose*.yml
-.dockerignore
