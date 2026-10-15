@@ -26,6 +26,10 @@ namespace LightChat.Core.Features.Users.UserRegister
             if (existingUser != null)
                 throw new InvalidOperationException("Пользователь с таким ником уже существует.");
 
+            var existingByEmail = await _userRepository.GetByEmailAsync(request.Email);
+            if (existingByEmail != null)
+                throw new InvalidOperationException("Пользователь с таким email уже существует.");
+
             var user = new User
             {
                 Id = Guid.NewGuid(),

@@ -47,5 +47,30 @@ namespace LightChat.IntegrationTests.Endpoints
             result.Should().NotBeNull();
             result.TokenString.Should().NotBeNullOrEmpty();
         }
+
+        [Fact]
+        public async Task Register_Should_ReturnConflict_When_EmailAlreadyExists()
+        {
+            var first = new CreateUserRequest("first_user", "same@chat.com", "Password123!");
+            var second = new CreateUserRequest("second_user", "same@chat.com", "Password123!");
+
+            var firstResponse = await Client.PostAsJsonAsync("/users", first);
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var secondResponse = await Client.PostAsJsonAsync("/users", second);
+            secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        }
+
+        [Fact]
+        public async Task Register_Should_ReturnConflict_When_UsernameAlreadyExists()
+        {
+            var first = new CreateUserRequest("dup_user", "first@chat.com", "Password123!");
+            var second = new CreateUserRequest("dup_user", "second@chat.com", "Password123!");
+
+            await Client.PostAsJsonAsync("/users", first);
+            var secondResponse = await Client.PostAsJsonAsync("/users", second);
+
+            secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        }
     }
 }

@@ -10,5 +10,6 @@ namespace LightChat.Core.Repositories
         Task<User?> GetByUsernameAsync(string username);
         Task CreateAsync(User user);
         Task<bool> ExistsAsync(Guid id);
+        Task<User?> GetByEmailAsync(string email);
     }
 }

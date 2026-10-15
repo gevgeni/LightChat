@@ -49,5 +49,6 @@ namespace LightChat.Infrastructure.Repositories
         public Task<List<User>> GetAllAsync() => _innerRepository.GetAllAsync();
         public Task<List<User>> GetAllContainsInIdsAsync(List<Guid> ids) => _innerRepository.GetAllContainsInIdsAsync(ids);
         public Task<User?> GetByUsernameAsync(string username) => _innerRepository.GetByUsernameAsync(username);
+        public Task<User?> GetByEmailAsync(string email) => _innerRepository.GetByEmailAsync(email);
     }
 }
