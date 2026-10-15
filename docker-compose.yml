@@ -14,7 +14,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ')"LK-7cV)>wxs*%a'
+      POSTGRES_PASSWORD: devpassword
       POSTGRES_DB: litechat_db
     ports:
       - "5432:5432"
