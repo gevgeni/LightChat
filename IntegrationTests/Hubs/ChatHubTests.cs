@@ -237,6 +237,25 @@ namespace LightChat.IntegrationTests.Hubs
             readChatId.Should().Be(chat.Id);
             readerId.Should().Be(userId);
         }
+
+        [Fact]
+        public async Task MarkChatAsRead_Should_ThrowException_When_UserHasNotJoinedChat()
+        {
+            var (token, _) = await RegisterAndLoginAsync("reader_outsider", "reader_outsider@chat.com");
+
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var createChatResponse = await Client.PostAsJsonAsync("/chats", new CreateChatRequest("read_private"));
+            var chat = await createChatResponse.Content.ReadFromJsonAsync<ChatResultDto>();
+
+            await using var hubConnection = CreateHubConnection(token);
+            await hubConnection.StartAsync();
+
+            // Не зовём JoinChat — сразу MarkChatAsRead
+            Func<Task> act = async () => await hubConnection.InvokeAsync("MarkChatAsRead", chat!.Id);
+
+            await act.Should().ThrowAsync<HubException>()
+                .WithMessage("*Вы не являетесь участником этого чата*");
+        }
     }
 
     public record UserTypingNotification(Guid UserId, Guid ChatId);

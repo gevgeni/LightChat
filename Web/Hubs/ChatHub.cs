@@ -180,6 +180,12 @@ namespace LightChat.Web.Hubs
         {
             var userId = GetUserId();
 
+            if (Context.Items["AuthorizedChats"] is not HashSet<Guid> authorizedChats
+                || !authorizedChats.Contains(chatId))
+            {
+                throw new HubException("Вы не являетесь участником этого чата.");
+            }
+
             await _messageRepository.MarkUnreadAsReadAsync(chatId, userId);
 
             await Clients.Group(chatId.ToString()).SendAsync("MessagesMarkedAsRead", new
