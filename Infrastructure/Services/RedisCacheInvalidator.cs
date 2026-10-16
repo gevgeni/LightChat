@@ -14,12 +14,12 @@ namespace LightChat.Infrastructure.Services
 
         public async Task InvalidateAllUsersListAsync()
         {
-            await DeleteByPatternAsync("users:all");
+            await DeleteByPatternAsync("users:all:*");
         }
 
         public async Task InvalidateChatMembersAsync(Guid chatId)
         {
-            await DeleteByPatternAsync($"chats:{chatId}:members");
+            await DeleteByPatternAsync($"chats:{chatId}:members:*");
         }
 
         public async Task InvalidateUserByIdAsync(Guid userId)

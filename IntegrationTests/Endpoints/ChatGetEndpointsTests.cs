@@ -117,5 +117,30 @@ namespace LightChat.IntegrationTests.Endpoints
 
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
+
+        [Fact]
+        public async Task GetChatMembers_Should_ReturnUpdatedList_AfterMemberAdded()
+        {
+            var (ownerToken, ownerId) = await RegisterAndLoginAsync("inv_owner", "inv_owner@chat.com");
+            var (memberToken, memberId) = await RegisterAndLoginAsync("inv_member", "inv_member@chat.com");
+
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            var createResp = await Client.PostAsJsonAsync("/chats", new CreateChatRequest("inv_chat"));
+            var chat = await createResp.Content.ReadFromJsonAsync<ChatResultDto>();
+
+            // Прогреваем кэш участников owner'ом — там пока только owner
+            await Client.GetAsync($"/chats/{chat!.Id}/members");
+
+            // Добавляем участника
+            await Client.PostAsJsonAsync($"/chats/{chat.Id}/members", new AddMemberRequest(memberId));
+
+            // Снова читаем участников — должно быть 2, кэш должен был инвалидироваться
+            var response = await Client.GetAsync($"/chats/{chat.Id}/members");
+            var members = await response.Content.ReadFromJsonAsync<IEnumerable<ChatMemberDto>>();
+
+            members.Should().HaveCount(2);
+            members.Should().Contain(m => m.Id == ownerId);
+            members.Should().Contain(m => m.Id == memberId);
+        }
     }
 }
