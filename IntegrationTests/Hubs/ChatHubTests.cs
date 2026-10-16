@@ -1,14 +1,13 @@
-﻿using System.Net.Http.Headers;
-
-using FluentAssertions;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR.Client;
-
-using LightChat.Web.Requests;
+﻿using FluentAssertions;
 using LightChat.Core.Entities;
 using LightChat.Core.Features.Chats.CreateChat;
 using LightChat.Core.Features.Users.UserJwtAuthorize;
+using LightChat.Web.Requests;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Http.Headers;
 
 namespace LightChat.IntegrationTests.Hubs
 {
@@ -255,6 +254,26 @@ namespace LightChat.IntegrationTests.Hubs
 
             await act.Should().ThrowAsync<HubException>()
                 .WithMessage("*Вы не являетесь участником этого чата*");
+        }
+
+        [Fact]
+        public async Task CreateDirectChat_Should_NotifyTargetUser()
+        {
+            var (user1Token, _) = await RegisterAndLoginAsync("dm_user1", "dm1@chat.com");
+            var (user2Token, user2Id) = await RegisterAndLoginAsync("dm_user2", "dm2@chat.com");
+
+            await using var connection2 = CreateHubConnection(user2Token);
+            await connection2.StartAsync();
+
+            var invitationTask = new TaskCompletionSource<bool>();
+            connection2.On<object>("ChatInvitation", _ => invitationTask.TrySetResult(true));
+
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+            var response = await Client.PostAsJsonAsync("/chats/direct", new CreateDirectChatRequest(user2Id));
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            var completed = await Task.WhenAny(invitationTask.Task, Task.Delay(3000));
+            completed.Should().Be(invitationTask.Task, "пользователь-получатель должен получить ChatInvitation");
         }
     }
 
