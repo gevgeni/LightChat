@@ -278,9 +278,11 @@ try
 
             return Results.Ok(result);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            return Results.Forbid();
+            return Results.Json(
+                new { error = ex.Message },
+                statusCode: StatusCodes.Status401Unauthorized);
         }
     })
     .WithTags("Users")
@@ -329,7 +331,11 @@ try
     .RequireAuthorization();
 
     //endpoint - создание личного чата
-    app.MapPost("/chats/direct", async (CreateDirectChatRequest request, ClaimsPrincipal principal, ISender mediatr) =>
+    app.MapPost("/chats/direct", async (
+        CreateDirectChatRequest request, 
+        ClaimsPrincipal principal, 
+        ISender mediatr,
+        IHubContext<ChatHub> hubContext) =>
     {
         var currentUserIdString = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
                                     ?? principal.FindFirst("sub")?.Value;
@@ -340,6 +346,13 @@ try
 
         var command = new CreateDirectChatCommand(currentUserId, request.TargetUserId);
         var result = await mediatr.Send(command);
+
+        await hubContext.Clients.User(targetUserId.ToString()).SendAsync("ChatInvitation", new
+        {
+            id = result.Id,
+            name = result.Name,
+            isDirect = result.IsDirect
+        });
 
         return Results.Created($"/chats/direct/{result.Id}", result);
     })
