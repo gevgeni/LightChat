@@ -45,11 +45,6 @@ namespace LightChat.Web.Services
             }
         }
 
-        public IEnumerable<Guid> GetOnlineUsers()
-        {
-            throw new NotImplementedException();
-        }
-
         public bool IsUserOnline(Guid userId)
         {
             var userKey = string.Format(UserConnectionsPrefix, userId);
