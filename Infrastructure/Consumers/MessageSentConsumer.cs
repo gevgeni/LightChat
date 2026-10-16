@@ -34,6 +34,9 @@ namespace LightChat.Infrastructure.Consumers
             var publicKey = config["Vapid:PublicKey"];
             var privateKey = config["Vapid:PrivateKey"];
 
+            if (string.IsNullOrEmpty(vapidSubject))
+                throw new InvalidOperationException("Vapid:Subject не настроен в конфигурации.");
+
             if (string.IsNullOrEmpty(publicKey) || string.IsNullOrEmpty(privateKey))
                 throw new InvalidOperationException(
                     "VAPID ключи не настроены в appsettings.json");
