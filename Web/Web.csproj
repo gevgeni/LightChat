@@ -6,6 +6,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<PreserveCompilationContext>true</PreserveCompilationContext>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
 	  <UserSecretsId>e1a04821-50a4-476e-a732-7073bb1db97e</UserSecretsId>
   </PropertyGroup>
 
