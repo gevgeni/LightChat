@@ -53,9 +53,12 @@ namespace LightChat.Web.Hubs
             var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(userIdString, out var userId))
             {
+                var wasOffline = !_statusManager.IsUserOnline(userId);
+
                 _statusManager.SetOnline(userId, Context.ConnectionId);
 
-                await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = true });
+                if (wasOffline)
+                    await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = true });
             }
 
             await base.OnConnectedAsync();
@@ -66,10 +69,17 @@ namespace LightChat.Web.Hubs
         /// </summary>
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            _statusManager.RemoveConnection(Context.ConnectionId, out var userId, out var isFullyOffline);
+            try
+            {
+                _statusManager.RemoveConnection(Context.ConnectionId, out var userId, out var isFullyOffline);
 
-            if (isFullyOffline && userId.HasValue)
-                await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = false });
+                if (isFullyOffline && userId.HasValue)
+                    await Clients.All.SendAsync("UserStatusChanged", new { userId, isOnline = false });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка обработки disconnect для {ConnectionId}", Context.ConnectionId);
+            }
 
             await base.OnDisconnectedAsync(exception);
         }
